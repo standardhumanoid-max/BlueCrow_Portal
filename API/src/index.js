@@ -1,8 +1,11 @@
 require('dotenv').config()
 const express  = require('express')
 const cors     = require('cors')
+const path     = require('path')
 const { avPool, compPool } = require('./db')
 const { migrate } = require('./migrate')
+
+const DIST = path.join(__dirname, '../../FrontEnd_Compliance/Compliance-Portal/dist')
 
 const fundsRouter      = require('./routes/funds')
 const companiesRouter  = require('./routes/companies')
@@ -43,8 +46,15 @@ app.get('/api/health', async (req, res) => {
   }
 })
 
+// ── Frontend estático (serve o build do React na raiz) ─────────────────────────
+app.use(express.static(DIST))
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next()
+  res.sendFile(path.join(DIST, 'index.html'))
+})
+
 // ── Start ──────────────────────────────────────────────────────────────────────
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`BlueCrow API running on http://localhost:${PORT}`)
   console.log(`Health check: http://localhost:${PORT}/api/health`)
   await migrate()
