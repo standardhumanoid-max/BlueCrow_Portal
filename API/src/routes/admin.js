@@ -6,7 +6,7 @@ const { compPool } = require('../db')
 router.get('/users', async (req, res) => {
   try {
     const { rows } = await compPool.query(
-      `SELECT id, email, name, initials, role, active, portals, created_at
+      `SELECT id, email, name, initials, role, active, portals, totp_enabled, created_at
        FROM portal_users ORDER BY name ASC`
     )
     res.json(rows)

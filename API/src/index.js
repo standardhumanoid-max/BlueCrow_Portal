@@ -12,6 +12,7 @@ const appStateRouter   = require('./routes/appState')
 const compStoreRouter  = require('./routes/compStore')
 const cmvmRouter       = require('./routes/cmvm')
 const adminRouter      = require('./routes/admin')
+const authRouter       = require('./routes/auth')
 
 const app  = express()
 const PORT = process.env.PORT || 3001
@@ -29,6 +30,7 @@ app.use('/api/av/state',   appStateRouter)
 app.use('/api/comp',       compStoreRouter)
 app.use('/api/cmvm',       cmvmRouter)
 app.use('/api/admin',      adminRouter)
+app.use('/api/auth',       authRouter)
 
 // ── Health check ───────────────────────────────────────────────────────────────
 app.get('/api/health', async (req, res) => {

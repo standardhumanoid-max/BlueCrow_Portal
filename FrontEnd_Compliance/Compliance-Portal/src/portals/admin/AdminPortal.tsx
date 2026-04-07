@@ -1,23 +1,25 @@
 import { useState, useEffect } from 'react'
-import { Users, ClipboardList, Shield, LogOut, LayoutGrid, Plus, Pencil, Trash2, X, Eye, EyeOff, Check } from 'lucide-react'
+import { Users, ClipboardList, Shield, LogOut, LayoutGrid, Plus, Pencil, Trash2, X, Eye, EyeOff, Check, Smartphone, ShieldOff } from 'lucide-react' // Smartphone used in table; ShieldOff for 2FA reset
 import { useAuth } from '@/context/AuthContext'
 import { Auditoria }      from '@/pages/Auditoria'
 import { Ciberseguranca } from '@/pages/Ciberseguranca'
 import { ROLE_LABELS, ROLE_COLORS, type Role, type Portal } from '@/config/users'
 
 const ADMIN_API = 'http://localhost:3001/api/admin'
+const AUTH_API  = 'http://localhost:3001/api/auth'
 
 type Section = 'utilizadores' | 'auditoria' | 'ciberseguranca'
 
 interface DBUser {
-  id:        string
-  email:     string
-  name:      string
-  initials:  string
-  role:      Role
-  portals:   Portal[]
-  active:    boolean
-  created_at?: string
+  id:           string
+  email:        string
+  name:         string
+  initials:     string
+  role:         Role
+  portals:      Portal[]
+  active:       boolean
+  totp_enabled: boolean
+  created_at?:  string
 }
 
 const EMPTY_FORM = {
@@ -128,14 +130,22 @@ export function AdminPortal({ onBackToHub }: { onBackToHub: () => void }) {
 // ── Utilizadores CRUD ─────────────────────────────────────────────────────────
 function UtilizadoresAdmin() {
   const { user: me } = useAuth()
-  const [users,   setUsers]   = useState<DBUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modal,   setModal]   = useState<'create' | 'edit' | null>(null)
-  const [form,    setForm]    = useState(EMPTY_FORM)
-  const [saving,  setSaving]  = useState(false)
+  const [users,    setUsers]   = useState<DBUser[]>([])
+  const [loading,  setLoading] = useState(true)
+  const [modal,    setModal]   = useState<'create' | 'edit' | null>(null)
+  const [form,     setForm]    = useState(EMPTY_FORM)
+  const [saving,   setSaving]  = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
-  const [showPw,  setShowPw]  = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
+  const [showPw,   setShowPw]  = useState(false)
+  const [error,    setError]   = useState<string | null>(null)
+
+  async function disable2FA(u: DBUser) {
+    if (!window.confirm(`Repor 2FA para ${u.name}?\nO utilizador terá de configurar novamente no próximo login.`)) return
+    try {
+      await fetch(`${AUTH_API}/2fa/${u.id}`, { method: 'DELETE' })
+      await loadUsers()
+    } catch { /* noop */ }
+  }
 
   async function loadUsers() {
     setLoading(true)
@@ -256,6 +266,7 @@ function UtilizadoresAdmin() {
                   <th className="px-5 py-3 text-left font-medium">Perfil</th>
                   <th className="px-5 py-3 text-left font-medium">Portais</th>
                   <th className="px-5 py-3 text-center font-medium">Ativo</th>
+                  <th className="px-5 py-3 text-center font-medium">2FA</th>
                   <th className="px-5 py-3 text-right font-medium">Ações</th>
                 </tr>
               </thead>
@@ -300,6 +311,11 @@ function UtilizadoresAdmin() {
                           ? <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
                           : <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />}
                       </td>
+                      <td className="px-5 py-3 text-center">
+                        {u.totp_enabled
+                          ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5"><Smartphone size={9} />Ativo</span>
+                          : <span className="text-[10px] text-gray-400">—</span>}
+                      </td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -309,6 +325,15 @@ function UtilizadoresAdmin() {
                           >
                             <Pencil size={13} />
                           </button>
+                          {u.totp_enabled && (
+                            <button
+                              onClick={() => disable2FA(u)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                              title="Repor 2FA"
+                            >
+                              <ShieldOff size={13} />
+                            </button>
+                          )}
                           {!isMe && (
                             <button
                               onClick={() => handleDelete(u.id)}

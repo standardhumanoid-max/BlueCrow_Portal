@@ -2,6 +2,10 @@ const { compPool } = require('./db')
 
 async function migrate() {
   const migrations = [
+    // 2FA columns on portal_users
+    `ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS totp_secret TEXT`,
+    `ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
+
     // comp_clients
     `ALTER TABLE comp_clients ADD COLUMN IF NOT EXISTS motivo TEXT DEFAULT ''`,
 

@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { Eye, EyeOff, Lock, Shield, LogOut } from 'lucide-react'
+import { Eye, EyeOff, Lock, Shield, LogOut, Smartphone } from 'lucide-react'
 
 export type PortalId = 'compliance' | 'asset-valuation' | 'investment-analysis' | 'investor-relations' | 'admin-panel'
 
@@ -86,17 +86,22 @@ interface Props {
 }
 
 export function PortalHub({ onSelectPortal }: Props) {
-  const { user, login, logout, lockoutInfo, authLoading } = useAuth()
+  const { user, login, getSetup2fa, confirmSetup2fa, verify2fa, logout, lockoutInfo, authLoading } = useAuth()
 
   // ── Login form state ───────────────────────────────────────────────────────
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [showPw,   setShowPw]   = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
-  const [loading,  setLoading]  = useState(false)
-  const [locked,     setLocked]     = useState(false)
-  const [remaining,  setRemaining]  = useState(0)
-  const [attempts,   setAttempts]   = useState(0)
+  const [step,        setStep]       = useState<'credentials' | '2fa' | 'setup'>('credentials')
+  const [pendingId,   setPendingId]  = useState<string>('')
+  const [email,       setEmail]      = useState('')
+  const [password,    setPassword]   = useState('')
+  const [showPw,      setShowPw]     = useState(false)
+  const [totpToken,   setTotpToken]  = useState('')
+  const [setupQr,     setSetupQr]    = useState('')
+  const [setupSecret, setSetupSecret] = useState('')
+  const [error,       setError]      = useState<string | null>(null)
+  const [loading,     setLoading]    = useState(false)
+  const [locked,      setLocked]     = useState(false)
+  const [remaining,   setRemaining]  = useState(0)
+  const [attempts,    setAttempts]   = useState(0)
 
   const refreshLockout = useCallback(() => {
     const info = lockoutInfo(email.trim())
@@ -119,8 +124,37 @@ export function PortalHub({ onSelectPortal }: Props) {
     e.preventDefault()
     if (locked) return
     setError(null); setLoading(true)
-    const err = await login(email.trim(), password)
-    if (err) { setError(err); refreshLockout() }
+    const result = await login(email.trim(), password)
+    if (result.error) {
+      setError(result.error); refreshLockout()
+    } else if (result.needsSetup && result.userId) {
+      // Primeiro login — gerar QR e mostrar ecrã de setup
+      setPendingId(result.userId)
+      const setup = await getSetup2fa(result.userId)
+      if (typeof setup === 'string') { setError(setup) }
+      else { setSetupQr(setup.qr); setSetupSecret(setup.secret); setTotpToken(''); setStep('setup') }
+    } else if (result.requires2fa && result.userId) {
+      setPendingId(result.userId)
+      setTotpToken(''); setStep('2fa')
+    }
+    setLoading(false)
+  }
+
+  async function handleConfirmSetup(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null); setLoading(true)
+    const err = await confirmSetup2fa(pendingId, totpToken)
+    if (err) setError(err)
+    else setStep('credentials')
+    setLoading(false)
+  }
+
+  async function handle2FA(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null); setLoading(true)
+    const err = await verify2fa(pendingId, totpToken.replace(/\s/g, ''))
+    if (err) setError(err)
+    else setStep('credentials')
     setLoading(false)
   }
 
@@ -211,99 +245,209 @@ export function PortalHub({ onSelectPortal }: Props) {
           <div className="w-full max-w-sm">
             <div className="bg-white/5 border border-white/10 rounded-2xl px-8 py-8 shadow-2xl backdrop-blur-sm">
 
-              <div className="flex items-center gap-2.5 mb-7">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/20 flex items-center justify-center">
-                  <Shield className="w-4 h-4 text-blue-400" />
-                </div>
-                <h2 className="text-[15px] font-semibold text-white">Acesso Restrito</h2>
-              </div>
-
-              {/* Bloqueio activo */}
-              {locked && (
-                <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-4 text-center">
-                  <Lock className="w-5 h-5 text-red-400 mx-auto mb-2" />
-                  <div className="text-[13px] font-semibold text-red-300 mb-1">Acesso temporariamente bloqueado</div>
-                  <div className="text-[11px] text-red-400/70 mb-3">5 tentativas falhadas foram registadas.</div>
-                  <div className="text-[24px] font-mono font-bold text-red-400">{fmtRemaining(remaining)}</div>
-                  <div className="text-[10px] text-red-500 mt-1">Desbloqueio automático</div>
-                </div>
-              )}
-
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-2.5 text-[13px] text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/40 transition-all disabled:opacity-40"
-                    value={email}
-                    onChange={e => { setEmail(e.target.value); setError(null) }}
-                    placeholder="nome@bluecrow.pt"
-                    autoComplete="email"
-                    autoFocus
-                    disabled={locked}
-                  />
+              {/* ── Step: credenciais ── */}
+              {step === 'credentials' && (<>
+                <div className="flex items-center gap-2.5 mb-7">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/20 flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <h2 className="text-[15px] font-semibold text-white">Acesso Restrito</h2>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                    Password
-                  </label>
-                  <div className="relative">
+                {/* Bloqueio activo */}
+                {locked && (
+                  <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-4 text-center">
+                    <Lock className="w-5 h-5 text-red-400 mx-auto mb-2" />
+                    <div className="text-[13px] font-semibold text-red-300 mb-1">Acesso temporariamente bloqueado</div>
+                    <div className="text-[11px] text-red-400/70 mb-3">5 tentativas falhadas foram registadas.</div>
+                    <div className="text-[24px] font-mono font-bold text-red-400">{fmtRemaining(remaining)}</div>
+                    <div className="text-[10px] text-red-500 mt-1">Desbloqueio automático</div>
+                  </div>
+                )}
+
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Email</label>
                     <input
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-2.5 pr-10 text-[13px] text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/40 transition-all disabled:opacity-40"
-                      type={showPw ? 'text' : 'password'}
-                      value={password}
-                      onChange={e => { setPassword(e.target.value); setError(null) }}
-                      placeholder="••••••••"
-                      autoComplete="current-password"
+                      type="email"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-2.5 text-[13px] text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/40 transition-all disabled:opacity-40"
+                      value={email}
+                      onChange={e => { setEmail(e.target.value); setError(null) }}
+                      placeholder="nome@bluecrow.pt"
+                      autoComplete="email"
+                      autoFocus
                       disabled={locked}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw(p => !p)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                      tabIndex={-1}
-                      disabled={locked}
-                    >
-                      {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
                   </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Password</label>
+                    <div className="relative">
+                      <input
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-2.5 pr-10 text-[13px] text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/40 transition-all disabled:opacity-40"
+                        type={showPw ? 'text' : 'password'}
+                        value={password}
+                        onChange={e => { setPassword(e.target.value); setError(null) }}
+                        placeholder="••••••••"
+                        autoComplete="current-password"
+                        disabled={locked}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw(p => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                        tabIndex={-1}
+                        disabled={locked}
+                      >
+                        {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {showAttemptsWarn && (
+                    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3.5 py-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                      <span className="text-[11px] text-amber-300">
+                        {attemptsLeft} tentativa{attemptsLeft === 1 ? '' : 's'} restante{attemptsLeft === 1 ? '' : 's'} antes do bloqueio.
+                      </span>
+                    </div>
+                  )}
+
+                  {error && !locked && (
+                    <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                      <span className="text-[12px] text-red-300">{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading || authLoading || !email || !password || locked}
+                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-[13px] py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 mt-2"
+                  >
+                    {authLoading
+                      ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />A inicializar…</>
+                      : loading
+                      ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />A autenticar…</>
+                      : locked
+                      ? <><Lock className="w-4 h-4" />Bloqueado</>
+                      : 'Entrar'}
+                  </button>
+                </form>
+              </>)}
+
+              {/* ── Step: setup 2FA (primeiro login) ── */}
+              {step === 'setup' && (<>
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/20 flex items-center justify-center">
+                    <Smartphone className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <h2 className="text-[15px] font-semibold text-white">Configurar autenticação</h2>
                 </div>
+                <p className="text-[12px] text-slate-400 mb-5">
+                  É necessário configurar a autenticação de dois fatores. Utilize o Google Authenticator ou Authy.
+                </p>
 
-                {/* Aviso de tentativas */}
-                {showAttemptsWarn && (
-                  <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3.5 py-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
-                    <span className="text-[11px] text-amber-300">
-                      {attemptsLeft} tentativa{attemptsLeft === 1 ? '' : 's'} restante{attemptsLeft === 1 ? '' : 's'} antes do bloqueio.
-                    </span>
+                <form onSubmit={handleConfirmSetup} className="space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-slate-400">1. Instale uma app autenticadora no seu telemóvel.</p>
+                    <p className="text-[11px] text-slate-400">2. Digitalize o QR code:</p>
+                    {setupQr && (
+                      <div className="flex justify-center py-2">
+                        <img src={setupQr} alt="QR Code 2FA" className="w-40 h-40 rounded-xl bg-white p-1" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[10px] text-slate-500 mb-1">Chave manual:</p>
+                      <code className="block text-[10px] bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 font-mono text-slate-300 break-all select-all">{setupSecret}</code>
+                    </div>
+                    <p className="text-[11px] text-slate-400">3. Introduza o código gerado pela app:</p>
                   </div>
-                )}
 
-                {/* Erro genérico */}
-                {error && !locked && (
-                  <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                    <span className="text-[12px] text-red-300">{error}</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-3 text-[22px] font-mono tracking-[0.3em] text-center text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                    value={totpToken}
+                    onChange={e => { setTotpToken(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(null) }}
+                    placeholder="000000"
+                    autoFocus
+                  />
+
+                  {error && (
+                    <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                      <span className="text-[12px] text-red-300">{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading || totpToken.length < 6}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-[13px] py-2.5 rounded-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    {loading
+                      ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />A ativar…</>
+                      : 'Ativar e entrar'}
+                  </button>
+                </form>
+              </>)}
+
+              {/* ── Step: 2FA ── */}
+              {step === '2fa' && (<>
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/20 flex items-center justify-center">
+                    <Smartphone className="w-4 h-4 text-indigo-400" />
                   </div>
-                )}
+                  <h2 className="text-[15px] font-semibold text-white">Verificação em 2 passos</h2>
+                </div>
+                <p className="text-[12px] text-slate-400 mb-7">
+                  Introduza o código de 6 dígitos gerado pela sua app autenticadora.
+                </p>
 
-                <button
-                  type="submit"
-                  disabled={loading || authLoading || !email || !password || locked}
-                  className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-[13px] py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 mt-2"
-                >
-                  {authLoading
-                    ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />A inicializar…</>
-                    : loading
-                    ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />A autenticar…</>
-                    : locked
-                    ? <><Lock className="w-4 h-4" />Bloqueado</>
-                    : 'Entrar'}
-                </button>
-              </form>
+                <form onSubmit={handle2FA} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Código de autenticação</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9 ]*"
+                      maxLength={7}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-3 text-[22px] font-mono tracking-[0.3em] text-center text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/40 transition-all"
+                      value={totpToken}
+                      onChange={e => { setTotpToken(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(null) }}
+                      placeholder="000000"
+                      autoFocus
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                      <span className="text-[12px] text-red-300">{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading || totpToken.length < 6}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-[13px] py-2.5 rounded-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    {loading
+                      ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />A verificar…</>
+                      : 'Verificar'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setStep('credentials'); setError(null); setTotpToken('') }}
+                    className="w-full text-[12px] text-slate-500 hover:text-slate-300 transition-colors py-1"
+                  >
+                    ← Voltar ao início de sessão
+                  </button>
+                </form>
+              </>)}
             </div>
 
             <p className="text-center text-[11px] text-slate-600 mt-5">

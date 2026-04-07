@@ -42,16 +42,30 @@ function clearLockout(email: string) {
   } catch { /* noop */ }
 }
 
+const AUTH_API_SETUP  = 'http://localhost:3001/api/auth/2fa/setup'
+const AUTH_API_ENABLE = 'http://localhost:3001/api/auth/2fa/enable'
+const AUTH_API_VERIFY = 'http://localhost:3001/api/auth/2fa/verify'
+
+export interface LoginResult {
+  error:        string | null
+  requires2fa?: boolean   // 2FA configurado — pede código
+  needsSetup?:  boolean   // 2FA não configurado — pede QR setup
+  userId?:      string
+}
+
 // ─── Tipos expostos ───────────────────────────────────────────────────────────
 interface AuthState {
-  user:        AppUser | null
-  authLoading: boolean
-  login:       (email: string, password: string) => Promise<string | null>
-  logout:      () => Promise<void>
-  can:         (permission: Permission) => boolean
-  canPortal:   (portal: string) => boolean
-  isAdmin:     boolean
-  lockoutInfo: (email: string) => { locked: boolean; remaining: number; attempts: number }
+  user:            AppUser | null
+  authLoading:     boolean
+  login:           (email: string, password: string) => Promise<LoginResult>
+  getSetup2fa:     (userId: string) => Promise<{ qr: string; secret: string } | string>
+  confirmSetup2fa: (userId: string, token: string) => Promise<string | null>
+  verify2fa:       (userId: string, token: string) => Promise<string | null>
+  logout:          () => Promise<void>
+  can:             (permission: Permission) => boolean
+  canPortal:       (portal: string) => boolean
+  isAdmin:         boolean
+  lockoutInfo:     (email: string) => { locked: boolean; remaining: number; attempts: number }
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -122,14 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { locked, remaining, attempts: entry.count }
   }
 
-  async function login(email: string, password: string): Promise<string | null> {
+  async function login(email: string, password: string): Promise<LoginResult> {
     const now   = Date.now()
     const entry = getLockout(email)
 
     // ── Verificar bloqueio activo ──────────────────────────────────────────
     if (entry.until > now) {
       const mins = Math.ceil((entry.until - now) / 60000)
-      return `Conta bloqueada por excesso de tentativas. Tente novamente em ${mins} min.`
+      return { error: `Conta bloqueada por excesso de tentativas. Tente novamente em ${mins} min.` }
     }
 
     // ── Validar credenciais contra a base de dados ─────────────────────────
@@ -149,16 +163,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.removeItem(SESSION_KEY)
 
       if (newCount >= MAX_ATTEMPTS) {
-        return `Conta bloqueada após ${MAX_ATTEMPTS} tentativas falhadas. Tente novamente em 15 minutos.`
+        return { error: `Conta bloqueada após ${MAX_ATTEMPTS} tentativas falhadas. Tente novamente em 15 minutos.` }
       }
 
       const restantes = MAX_ATTEMPTS - newCount
-      return `Credenciais incorretas. Verifique o email e a password. (${restantes} tentativa${restantes === 1 ? '' : 's'} restante${restantes === 1 ? '' : 's'})`
+      return { error: `Credenciais incorretas. Verifique o email e a password. (${restantes} tentativa${restantes === 1 ? '' : 's'} restante${restantes === 1 ? '' : 's'})` }
     }
 
-    // ── Login bem-sucedido ─────────────────────────────────────────────────
+    // ── 2FA: sempre obrigatório após credenciais válidas ──────────────────
+    const u2fa = found as AppUser & { password: string; totp_enabled?: boolean; totp_secret?: string }
+    if (!u2fa.totp_enabled) {
+      // Sem 2FA configurado — utilizador precisa de configurar agora
+      return { error: null, needsSetup: true, userId: found.id }
+    }
+    // 2FA activo — pede código
+    return { error: null, requires2fa: true, userId: found.id }
+  }
+
+  function completeLogin(appUser: AppUser, email: string) {
     clearLockout(email)
-    const { password: _pw, ...appUser } = found
     setUser(appUser)
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(appUser))
     useStore.getState().addAuditLog({
@@ -166,7 +189,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       entity: 'Sessão',
       entity_label: `${appUser.name} (${appUser.email})`,
     })
-    return null
+  }
+
+  function findUser(userId: string) {
+    return dbUsers.find(u => u.id === userId) ?? null
+  }
+
+  /** Gera QR code de setup (chamado no 1.º login) */
+  async function getSetup2fa(userId: string): Promise<{ qr: string; secret: string } | string> {
+    try {
+      const res = await fetch(`${AUTH_API_SETUP}/${userId}`)
+      if (!res.ok) { const d = await res.json(); return d.error ?? 'Erro ao gerar QR code' }
+      return await res.json()
+    } catch {
+      return 'Erro de ligação ao servidor'
+    }
+  }
+
+  /** Confirma código após setup — ativa 2FA e completa o login */
+  async function confirmSetup2fa(userId: string, token: string): Promise<string | null> {
+    try {
+      const res = await fetch(AUTH_API_ENABLE, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId, token }),
+      })
+      if (!res.ok) { const d = await res.json(); return d.error ?? 'Código inválido' }
+      const found = findUser(userId)
+      if (!found) return 'Utilizador não encontrado'
+      const { password: _pw, ...appUser } = found
+      completeLogin(appUser as AppUser, appUser.email)
+      return null
+    } catch {
+      return 'Erro de ligação ao servidor'
+    }
+  }
+
+  /** Verifica código TOTP no login normal */
+  async function verify2fa(userId: string, token: string): Promise<string | null> {
+    try {
+      const res = await fetch(AUTH_API_VERIFY, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId, token }),
+      })
+      if (!res.ok) { const d = await res.json(); return d.error ?? 'Código inválido' }
+      const found = findUser(userId)
+      if (!found) return 'Utilizador não encontrado'
+      const { password: _pw, ...appUser } = found
+      completeLogin(appUser as AppUser, appUser.email)
+      return null
+    } catch {
+      return 'Erro de ligação ao servidor'
+    }
   }
 
   async function logout() {
@@ -193,7 +268,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, authLoading, login, logout, can, canPortal, lockoutInfo,
+      user, authLoading, login, getSetup2fa, confirmSetup2fa, verify2fa,
+      logout, can, canPortal, lockoutInfo,
       isAdmin: user?.role === 'admin',
     }}>
       {children}
