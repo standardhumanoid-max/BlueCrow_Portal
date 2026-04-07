@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { AnnouncementBar } from '@/components/AnnouncementBar'
 import './portal.css'
 
 import { DashboardPage }   from './pages/DashboardPage'
@@ -122,8 +123,9 @@ export function AssetValuationPortal({ onBackToHub }: { onBackToHub: () => void 
         </aside>
 
         {/* ── CONTENT ── */}
-        <main className="content">
-          {renderPage()}
+        <main className="content" style={{ display: 'flex', flexDirection: 'column' }}>
+          <AnnouncementBar />
+          <div style={{ flex: 1, overflowY: 'auto' }}>{renderPage()}</div>
         </main>
       </div>
     </div>

@@ -24,6 +24,7 @@ import { CMVM }              from '@/pages/CMVM'
 import { Fundos }           from '@/pages/SCR'
 import { Legislacao }        from '@/pages/Legislacao'
 import { SecurityAlertToast } from '@/components/SecurityAlertToast'
+import { AnnouncementBar }    from '@/components/AnnouncementBar'
 
 // ── Authenticated shell ────────────────────────────────────────────────────────
 function AppShell({ onBackToHub }: { onBackToHub: () => void }) {
@@ -73,6 +74,7 @@ function AppShell({ onBackToHub }: { onBackToHub: () => void }) {
       <Sidebar onBackToHub={onBackToHub} />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar />
+        <AnnouncementBar />
         <main className={currentPage === 'assistente' ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto'}>
           {renderPage()}
         </main>

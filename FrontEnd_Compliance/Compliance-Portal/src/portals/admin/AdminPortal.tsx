@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Users, ClipboardList, Shield, LogOut, LayoutGrid, Plus, Pencil, Trash2, X, Eye, EyeOff, Check, Smartphone, ShieldOff } from 'lucide-react' // Smartphone used in table; ShieldOff for 2FA reset
+import { Users, ClipboardList, Shield, LogOut, LayoutGrid, Plus, Pencil, Trash2, X, Eye, EyeOff, Check, Smartphone, ShieldOff, Megaphone } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Auditoria }      from '@/pages/Auditoria'
 import { Ciberseguranca } from '@/pages/Ciberseguranca'
 import { ROLE_LABELS, ROLE_COLORS, type Role, type Portal } from '@/config/users'
 
 import { API_BASE } from '@/lib/api'
-const ADMIN_API = `${API_BASE}/api/admin`
-const AUTH_API  = `${API_BASE}/api/auth`
+const ADMIN_API    = `${API_BASE}/api/admin`
+const AUTH_API     = `${API_BASE}/api/auth`
+const SETTINGS_API = `${API_BASE}/api/settings`
 
-type Section = 'utilizadores' | 'auditoria' | 'ciberseguranca'
+type Section = 'utilizadores' | 'auditoria' | 'ciberseguranca' | 'comunicados'
 
 interface DBUser {
   id:           string
@@ -41,9 +42,10 @@ const ALL_PORTALS: { key: Portal; label: string }[] = [
 
 // ── Sidebar nav items ─────────────────────────────────────────────────────────
 const NAV: { id: Section; label: string; icon: React.ReactNode }[] = [
-  { id: 'utilizadores',  label: 'Utilizadores',       icon: <Users        size={16} /> },
+  { id: 'utilizadores',  label: 'Utilizadores',        icon: <Users         size={16} /> },
   { id: 'auditoria',     label: 'Registo de Auditoria', icon: <ClipboardList size={16} /> },
-  { id: 'ciberseguranca', label: 'Cibersegurança',     icon: <Shield       size={16} /> },
+  { id: 'ciberseguranca', label: 'Cibersegurança',      icon: <Shield        size={16} /> },
+  { id: 'comunicados',   label: 'Comunicados',          icon: <Megaphone     size={16} /> },
 ]
 
 // ── AdminPortal root ──────────────────────────────────────────────────────────
@@ -123,6 +125,7 @@ export function AdminPortal({ onBackToHub }: { onBackToHub: () => void }) {
         {section === 'utilizadores'   && <UtilizadoresAdmin />}
         {section === 'auditoria'      && <Auditoria />}
         {section === 'ciberseguranca' && <Ciberseguranca />}
+        {section === 'comunicados'    && <ComunicadosAdmin />}
       </main>
     </div>
   )
@@ -501,6 +504,107 @@ function UtilizadoresAdmin() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Comunicados Admin ──────────────────────────────────────────────────────────
+function ComunicadosAdmin() {
+  const [message, setMessage] = useState('')
+  const [saved,   setSaved]   = useState('')
+  const [saving,  setSaving]  = useState(false)
+  const [status,  setStatus]  = useState<'idle' | 'ok' | 'error'>('idle')
+
+  useEffect(() => {
+    fetch(`${SETTINGS_API}/announcement`)
+      .then(r => r.json())
+      .then(d => { setMessage(d.value ?? ''); setSaved(d.value ?? '') })
+      .catch(() => {})
+  }, [])
+
+  async function handleSave() {
+    setSaving(true)
+    setStatus('idle')
+    try {
+      const res = await fetch(`${SETTINGS_API}/announcement`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ value: message }),
+      })
+      if (!res.ok) throw new Error()
+      setSaved(message)
+      setStatus('ok')
+    } catch {
+      setStatus('error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleClear() {
+    setMessage('')
+  }
+
+  const isDirty = message !== saved
+
+  return (
+    <div className="p-6 space-y-6 max-w-2xl">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Comunicados</h1>
+        <p className="text-sm text-gray-400 mt-0.5">
+          A mensagem aparece no topo de todos os portais enquanto estiver preenchida.
+          Deixar vazio para ocultar a barra.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+          Mensagem
+        </label>
+        <textarea
+          rows={4}
+          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-slate-400/40 placeholder:text-gray-300"
+          placeholder="Ex: Manutenção prevista para sábado às 10h. O portal poderá estar indisponível por cerca de 30 minutos."
+          value={message}
+          onChange={e => { setMessage(e.target.value); setStatus('idle') }}
+        />
+
+        {/* Preview */}
+        {message.trim() && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2.5">
+            <Megaphone className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-[12px] text-amber-800 leading-relaxed">{message}</p>
+          </div>
+        )}
+
+        {status === 'ok' && (
+          <p className="text-[12px] text-green-600 font-medium">Guardado com sucesso.</p>
+        )}
+        {status === 'error' && (
+          <p className="text-[12px] text-red-600 font-medium">Erro ao guardar. Tenta novamente.</p>
+        )}
+
+        <div className="flex items-center gap-2 pt-1">
+          {message.trim() && (
+            <button
+              onClick={handleClear}
+              className="px-4 py-2 text-[13px] text-gray-500 hover:text-red-600 font-medium border border-gray-200 rounded-lg hover:border-red-200 hover:bg-red-50 transition-colors"
+            >
+              Limpar barra
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={saving || !isDirty}
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-semibold px-5 py-2 rounded-lg transition-colors ml-auto"
+          >
+            {saving
+              ? <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />A guardar…</>
+              : 'Publicar'
+            }
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

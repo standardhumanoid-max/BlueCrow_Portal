@@ -6,6 +6,15 @@ async function migrate() {
     `ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS totp_secret TEXT`,
     `ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
 
+    // Tabela de configurações globais do portal
+    `CREATE TABLE IF NOT EXISTS portal_settings (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL DEFAULT '',
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `INSERT INTO portal_settings (key, value) VALUES ('announcement', '')
+     ON CONFLICT (key) DO NOTHING`,
+
     // comp_clients
     `ALTER TABLE comp_clients ADD COLUMN IF NOT EXISTS motivo TEXT DEFAULT ''`,
 
