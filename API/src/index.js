@@ -18,7 +18,7 @@ const app  = express()
 const PORT = process.env.PORT || 3001
 
 // ── Middleware ─────────────────────────────────────────────────────────────────
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'] }))
+app.use(cors({ origin: true }))  // aceita qualquer origem (rede interna)
 app.use(express.json())
 
 // ── Routes ─────────────────────────────────────────────────────────────────────

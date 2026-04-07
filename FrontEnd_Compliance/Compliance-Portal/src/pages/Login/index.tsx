@@ -47,9 +47,9 @@ export function Login({ onBack }: { onBack?: () => void }) {
     if (locked) return
     setError(null)
     setLoading(true)
-    const err = await login(email.trim(), password)
-    if (err) {
-      setError(err)
+    const result = await login(email.trim(), password)
+    if (result.error) {
+      setError(result.error)
       refreshLockout()
     }
     setLoading(false)

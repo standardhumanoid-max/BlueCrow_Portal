@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
+import { API_BASE } from '@/lib/api'
 import {
   Plus, Pencil, Trash2, Download, Upload, PlusCircle,
   ChevronLeft, Clock, X, Search, SlidersHorizontal, CalendarDays,
@@ -15,7 +16,7 @@ import { useExport } from '@/hooks/useExport'
 import type { ComplianceTask } from '@/types'
 
 // ─── Year persistence ────────────────────────────────────────────────────────
-const API_YEARS = 'http://localhost:3001/api/comp/comp_available_years'
+const API_YEARS = `${API_BASE}/api/comp/comp_available_years`
 async function loadYears(): Promise<number[]> {
   try {
     const res = await fetch(API_YEARS)

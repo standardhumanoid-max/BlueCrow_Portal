@@ -1,21 +1,22 @@
 import { create } from 'zustand'
 
 // ─── API helper ───────────────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:3001/api/comp'
+import { API_BASE } from '@/lib/api'
+const COMP_API = `${API_BASE}/api/comp`
 const api = {
   async upsert(table: string, id: string, data: Record<string, unknown>) {
-    await fetch(`${API_BASE}/${table}`, {
+    await fetch(`${COMP_API}/${table}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, data }),
     })
   },
   async del(table: string, id: string) {
-    await fetch(`${API_BASE}/${table}/${id}`, { method: 'DELETE' })
+    await fetch(`${COMP_API}/${table}/${id}`, { method: 'DELETE' })
   },
   async bulk(table: string, items: { id: string; [k: string]: unknown }[]) {
     const rows = items.map(({ id, ...rest }) => ({ id, data: rest }))
-    await fetch(`${API_BASE}/${table}/bulk`, {
+    await fetch(`${COMP_API}/${table}/bulk`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rows }),
@@ -175,7 +176,7 @@ export const useStore = create<AppState>((set, get) => ({
   loading: false,
   loadAll: async () => {
     set({ loading: true })
-    const API = 'http://localhost:3001/api/comp'
+    const API = COMP_API
     function unwrap<T>(rows: any[]): T[] {
       if (rows.length === 0) return []
       // JSONB tables return { id, data: {...} }; flat tables return plain rows
@@ -518,7 +519,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
   loadAuditLogs: async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/comp/comp_audit')
+      const res = await fetch(`${COMP_API}/comp_audit`)
       if (!res.ok) return
       const logs = await res.json() as AuditLog[]
       logs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())

@@ -3,7 +3,8 @@
  * Interface mantida igual para não quebrar o store existente.
  */
 
-const API = 'http://localhost:3001/api/comp'
+import { API_BASE } from '@/lib/api'
+const API = `${API_BASE}/api/comp`
 
 // Mapa: nome da tabela Supabase → nome da tabela local
 const TABLE_MAP: Record<string, string> = {

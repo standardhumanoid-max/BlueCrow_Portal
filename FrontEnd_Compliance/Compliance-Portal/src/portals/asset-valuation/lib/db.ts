@@ -1,7 +1,8 @@
 import type { AppDatabase, Fund, FundData } from '../types/database'
 import { FUNDS } from '../types/database'
 
-const API = 'http://localhost:3001/api/av/state'
+import { API_BASE } from '@/lib/api'
+const API = `${API_BASE}/api/av/state`
 
 function emptyDb(): AppDatabase {
   const funds: Partial<Record<Fund, FundData>> = {}

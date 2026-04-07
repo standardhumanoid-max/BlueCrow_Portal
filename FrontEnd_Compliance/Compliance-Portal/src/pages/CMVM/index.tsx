@@ -66,7 +66,8 @@ interface Comunicacao {
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-const CMVM_API = 'http://localhost:3001/api/cmvm'
+import { API_BASE } from '@/lib/api'
+const CMVM_API = `${API_BASE}/api/cmvm`
 
 // Mapa: chave interna → path na nova API
 const ENDPOINT: Record<string, string> = {

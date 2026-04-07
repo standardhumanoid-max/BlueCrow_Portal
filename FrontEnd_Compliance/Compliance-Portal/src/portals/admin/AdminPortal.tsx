@@ -5,8 +5,9 @@ import { Auditoria }      from '@/pages/Auditoria'
 import { Ciberseguranca } from '@/pages/Ciberseguranca'
 import { ROLE_LABELS, ROLE_COLORS, type Role, type Portal } from '@/config/users'
 
-const ADMIN_API = 'http://localhost:3001/api/admin'
-const AUTH_API  = 'http://localhost:3001/api/auth'
+import { API_BASE } from '@/lib/api'
+const ADMIN_API = `${API_BASE}/api/admin`
+const AUTH_API  = `${API_BASE}/api/auth`
 
 type Section = 'utilizadores' | 'auditoria' | 'ciberseguranca'
 

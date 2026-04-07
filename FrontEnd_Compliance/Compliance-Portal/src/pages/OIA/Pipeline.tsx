@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { sbLoad, sbSaveAll } from '@/services/supabaseStore'
+import { API_BASE } from '@/lib/api'
 import { Plus, Check, X, ChevronDown, AlertCircle } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -272,7 +273,7 @@ export function Pipeline({ kind, companies, funds, onApprove }: Props) {
   const [showModal, setShowModal] = useState(false)
   useEffect(() => { sbLoad<PipelineItem>(tableName, storageKey, []).then(setItems) }, [tableName, storageKey])
   useEffect(() => {
-    fetch('http://localhost:3001/api/comp/portal_users')
+    fetch(`${API_BASE}/api/comp/portal_users`)
       .then(r => r.json())
       .then((rows: { name: string; active: boolean }[]) => {
         const names = rows.filter(u => u.active).map(u => u.name)

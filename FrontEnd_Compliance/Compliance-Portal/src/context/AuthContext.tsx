@@ -3,7 +3,7 @@ import { ROLE_PERMISSIONS, type AppUser, type Permission } from '@/config/users'
 import { useStore } from '@/store/useStore'
 import { Clock } from 'lucide-react'
 
-const API              = 'http://localhost:3001/api/comp/portal_users'
+const API              = `${API_BASE}/api/comp/portal_users`
 const SESSION_KEY      = 'compliance_user'
 const LOCKOUT_KEY      = 'compliance_lockout'   // { email, count, until }
 const MAX_ATTEMPTS     = 5
@@ -42,9 +42,10 @@ function clearLockout(email: string) {
   } catch { /* noop */ }
 }
 
-const AUTH_API_SETUP  = 'http://localhost:3001/api/auth/2fa/setup'
-const AUTH_API_ENABLE = 'http://localhost:3001/api/auth/2fa/enable'
-const AUTH_API_VERIFY = 'http://localhost:3001/api/auth/2fa/verify'
+import { API_BASE } from '@/lib/api'
+const AUTH_API_SETUP  = `${API_BASE}/api/auth/2fa/setup`
+const AUTH_API_ENABLE = `${API_BASE}/api/auth/2fa/enable`
+const AUTH_API_VERIFY = `${API_BASE}/api/auth/2fa/verify`
 
 export interface LoginResult {
   error:        string | null
