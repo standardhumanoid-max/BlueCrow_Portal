@@ -182,9 +182,56 @@ export function PortalHub({ onSelectPortal }: Props) {
 
   return (
     <div
-      className="min-h-screen bg-slate-900 flex flex-col"
+      className="min-h-screen bg-slate-900 flex flex-col relative overflow-hidden"
       style={{ backgroundImage: DOT_PATTERN }}
     >
+      {/* ── Ingenuity helicopter — contorno decorativo ── */}
+      <svg
+        viewBox="0 0 520 380"
+        fill="none"
+        stroke="white"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="absolute bottom-0 right-0 w-[520px] opacity-[0.04] pointer-events-none select-none"
+        aria-hidden="true"
+      >
+        {/* Corpo principal */}
+        <rect x="195" y="190" width="130" height="80" rx="6" strokeWidth="3"/>
+        {/* Painel solar */}
+        <rect x="205" y="172" width="110" height="18" rx="3" strokeWidth="2.5"/>
+        {/* Linha de ligação painel-corpo */}
+        <line x1="260" y1="172" x2="260" y2="190" strokeWidth="2"/>
+        {/* Mastro do rotor superior */}
+        <line x1="260" y1="130" x2="260" y2="172" strokeWidth="3"/>
+        {/* Hub rotor superior */}
+        <circle cx="260" cy="126" r="10" strokeWidth="2.5"/>
+        {/* Pás rotor superior (4 pás em X) */}
+        <line x1="260" y1="126" x2="60"  y2="100" strokeWidth="2.5"/>
+        <line x1="260" y1="126" x2="460" y2="100" strokeWidth="2.5"/>
+        <line x1="260" y1="126" x2="60"  y2="152" strokeWidth="2.5"/>
+        <line x1="260" y1="126" x2="460" y2="152" strokeWidth="2.5"/>
+        {/* Dicas das pás superiores */}
+        <ellipse cx="60"  cy="100" rx="14" ry="5" transform="rotate(-7 60 100)"  strokeWidth="2"/>
+        <ellipse cx="460" cy="100" rx="14" ry="5" transform="rotate(7 460 100)"  strokeWidth="2"/>
+        <ellipse cx="60"  cy="152" rx="14" ry="5" transform="rotate(7 60 152)"   strokeWidth="2"/>
+        <ellipse cx="460" cy="152" rx="14" ry="5" transform="rotate(-7 460 152)" strokeWidth="2"/>
+        {/* Hub rotor inferior */}
+        <circle cx="260" cy="140" r="7" strokeWidth="2"/>
+        {/* Pás rotor inferior (ligeiramente rodadas) */}
+        <line x1="260" y1="140" x2="75"  y2="160" strokeWidth="2"/>
+        <line x1="260" y1="140" x2="445" y2="160" strokeWidth="2"/>
+        <line x1="260" y1="140" x2="75"  y2="120" strokeWidth="2"/>
+        <line x1="260" y1="140" x2="445" y2="120" strokeWidth="2"/>
+        {/* Pernas de aterragem */}
+        <line x1="210" y1="270" x2="170" y2="330" strokeWidth="2.5"/>
+        <line x1="310" y1="270" x2="350" y2="330" strokeWidth="2.5"/>
+        <line x1="155" y1="330" x2="365" y2="330" strokeWidth="3"/>
+        {/* Detalhe lateral do corpo */}
+        <line x1="195" y1="210" x2="165" y2="220" strokeWidth="1.5"/>
+        <line x1="325" y1="210" x2="355" y2="220" strokeWidth="1.5"/>
+        <line x1="165" y1="220" x2="165" y2="255" strokeWidth="1.5"/>
+        <line x1="355" y1="220" x2="355" y2="255" strokeWidth="1.5"/>
+      </svg>
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-10 pt-10 pb-2">
         <div className="flex items-center gap-3">
@@ -228,7 +275,7 @@ export function PortalHub({ onSelectPortal }: Props) {
       {/* ── Hero ── */}
       <div className="text-center px-6 pt-12 pb-10">
         <h1 className="text-white text-3xl font-bold tracking-tight">
-          Portal de Gestão
+          Portal Ingenuity
         </h1>
         <p className="text-slate-400 text-[14px] mt-2 max-w-md mx-auto">
           {user
