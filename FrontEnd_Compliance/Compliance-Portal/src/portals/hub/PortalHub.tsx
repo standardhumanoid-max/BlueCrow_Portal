@@ -185,52 +185,62 @@ export function PortalHub({ onSelectPortal }: Props) {
       className="min-h-screen bg-slate-900 flex flex-col relative overflow-hidden"
       style={{ backgroundImage: DOT_PATTERN }}
     >
-      {/* ── Ingenuity helicopter — contorno decorativo ── */}
+      {/* ── Ingenuity helicopter — contorno animado ── */}
       <svg
         viewBox="0 0 520 380"
         fill="none"
         stroke="white"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="absolute bottom-0 right-0 w-[520px] opacity-[0.04] pointer-events-none select-none"
+        className="absolute top-[60px] left-1/2 -translate-x-1/2 w-[380px] opacity-[0.05] pointer-events-none select-none"
         aria-hidden="true"
       >
-        {/* Corpo principal */}
-        <rect x="195" y="190" width="130" height="80" rx="6" strokeWidth="3"/>
-        {/* Painel solar */}
-        <rect x="205" y="172" width="110" height="18" rx="3" strokeWidth="2.5"/>
-        {/* Linha de ligação painel-corpo */}
-        <line x1="260" y1="172" x2="260" y2="190" strokeWidth="2"/>
-        {/* Mastro do rotor superior */}
-        <line x1="260" y1="130" x2="260" y2="172" strokeWidth="3"/>
-        {/* Hub rotor superior */}
-        <circle cx="260" cy="126" r="10" strokeWidth="2.5"/>
-        {/* Pás rotor superior (4 pás em X) */}
-        <line x1="260" y1="126" x2="60"  y2="100" strokeWidth="2.5"/>
-        <line x1="260" y1="126" x2="460" y2="100" strokeWidth="2.5"/>
-        <line x1="260" y1="126" x2="60"  y2="152" strokeWidth="2.5"/>
-        <line x1="260" y1="126" x2="460" y2="152" strokeWidth="2.5"/>
-        {/* Dicas das pás superiores */}
-        <ellipse cx="60"  cy="100" rx="14" ry="5" transform="rotate(-7 60 100)"  strokeWidth="2"/>
-        <ellipse cx="460" cy="100" rx="14" ry="5" transform="rotate(7 460 100)"  strokeWidth="2"/>
-        <ellipse cx="60"  cy="152" rx="14" ry="5" transform="rotate(7 60 152)"   strokeWidth="2"/>
-        <ellipse cx="460" cy="152" rx="14" ry="5" transform="rotate(-7 460 152)" strokeWidth="2"/>
-        {/* Hub rotor inferior */}
-        <circle cx="260" cy="140" r="7" strokeWidth="2"/>
-        {/* Pás rotor inferior (ligeiramente rodadas) */}
-        <line x1="260" y1="140" x2="75"  y2="160" strokeWidth="2"/>
-        <line x1="260" y1="140" x2="445" y2="160" strokeWidth="2"/>
-        <line x1="260" y1="140" x2="75"  y2="120" strokeWidth="2"/>
-        <line x1="260" y1="140" x2="445" y2="120" strokeWidth="2"/>
-        {/* Pernas de aterragem */}
-        <line x1="210" y1="270" x2="170" y2="330" strokeWidth="2.5"/>
-        <line x1="310" y1="270" x2="350" y2="330" strokeWidth="2.5"/>
-        <line x1="155" y1="330" x2="365" y2="330" strokeWidth="3"/>
-        {/* Detalhe lateral do corpo */}
-        <line x1="195" y1="210" x2="165" y2="220" strokeWidth="1.5"/>
-        <line x1="325" y1="210" x2="355" y2="220" strokeWidth="1.5"/>
-        <line x1="165" y1="220" x2="165" y2="255" strokeWidth="1.5"/>
-        <line x1="355" y1="220" x2="355" y2="255" strokeWidth="1.5"/>
+        {/* Flutuação suave do corpo inteiro */}
+        <g>
+          <animateTransform attributeName="transform" type="translate"
+            values="0,0;0,-7;0,0" dur="3.5s" repeatCount="indefinite"
+            calcMode="spline" keyTimes="0;0.5;1"
+            keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
+
+          {/* Estrutura estática */}
+          <rect x="195" y="190" width="130" height="80" rx="6" strokeWidth="3"/>
+          <rect x="205" y="172" width="110" height="18" rx="3" strokeWidth="2.5"/>
+          <line x1="260" y1="172" x2="260" y2="190" strokeWidth="2"/>
+          <line x1="260" y1="130" x2="260" y2="172" strokeWidth="3"/>
+          <circle cx="260" cy="126" r="10" strokeWidth="2.5"/>
+          <circle cx="260" cy="140" r="7"  strokeWidth="2"/>
+          <line x1="210" y1="270" x2="170" y2="330" strokeWidth="2.5"/>
+          <line x1="310" y1="270" x2="350" y2="330" strokeWidth="2.5"/>
+          <line x1="155" y1="330" x2="365" y2="330" strokeWidth="3"/>
+          <line x1="195" y1="210" x2="165" y2="220" strokeWidth="1.5"/>
+          <line x1="325" y1="210" x2="355" y2="220" strokeWidth="1.5"/>
+          <line x1="165" y1="220" x2="165" y2="255" strokeWidth="1.5"/>
+          <line x1="355" y1="220" x2="355" y2="255" strokeWidth="1.5"/>
+
+          {/* Rotor superior — gira no sentido horário */}
+          <g>
+            <line x1="260" y1="126" x2="60"  y2="100" strokeWidth="2.5"/>
+            <line x1="260" y1="126" x2="460" y2="100" strokeWidth="2.5"/>
+            <line x1="260" y1="126" x2="60"  y2="152" strokeWidth="2.5"/>
+            <line x1="260" y1="126" x2="460" y2="152" strokeWidth="2.5"/>
+            <ellipse cx="60"  cy="100" rx="14" ry="5" strokeWidth="2"/>
+            <ellipse cx="460" cy="100" rx="14" ry="5" strokeWidth="2"/>
+            <ellipse cx="60"  cy="152" rx="14" ry="5" strokeWidth="2"/>
+            <ellipse cx="460" cy="152" rx="14" ry="5" strokeWidth="2"/>
+            <animateTransform attributeName="transform" type="rotate"
+              from="0 260 126" to="360 260 126" dur="1.4s" repeatCount="indefinite"/>
+          </g>
+
+          {/* Rotor inferior — gira no sentido anti-horário */}
+          <g>
+            <line x1="260" y1="140" x2="75"  y2="160" strokeWidth="2"/>
+            <line x1="260" y1="140" x2="445" y2="160" strokeWidth="2"/>
+            <line x1="260" y1="140" x2="75"  y2="120" strokeWidth="2"/>
+            <line x1="260" y1="140" x2="445" y2="120" strokeWidth="2"/>
+            <animateTransform attributeName="transform" type="rotate"
+              from="0 260 140" to="-360 260 140" dur="1.1s" repeatCount="indefinite"/>
+          </g>
+        </g>
       </svg>
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-10 pt-10 pb-2">
