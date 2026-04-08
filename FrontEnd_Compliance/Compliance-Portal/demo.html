@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ComplianceHub — BlueCrow Capital · Demo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; font-size: 13px; background: #f5f6fa; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+
+  /* ── Org Chart Connectors ── */
+  .org-row { display: flex; justify-content: center; }
+  .org-col { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; padding: 0 6px; }
+  .org-col::before { content:''; position:absolute; top:0; left:0; right:50%; height:1px; background:#cbd5e1; }
+  .org-col::after  { content:''; position:absolute; top:0; left:50%; right:0; height:1px; background:#cbd5e1; }
+  .org-col:first-child::before { display:none; }
+  .org-col:last-child::after   { display:none; }
+  .org-col:only-child::before, .org-col:only-child::after { display:none; }
+  .org-stem      { width:1px; height:24px; background:#cbd5e1; flex-shrink:0; }
+  .org-stem-blue { width:1px; height:24px; background:#60a5fa; flex-shrink:0; }
+  .org-stem-indigo { width:1px; height:24px; background:#818cf8; flex-shrink:0; }
+  .org-stem-emerald { width:1px; height:24px; background:#34d399; flex-shrink:0; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+  .nav-item { transition: all 0.1s; }
+  .fade-in { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+  .section-panel { display: none; }
+  .section-panel.open { display: block; }
+</style>
+</head>
+<body class="text-gray-800">
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="login-screen" class="min-h-screen bg-[#f5f6fa] flex items-center justify-center p-4">
+  <div class="w-full max-w-sm">
+    <!-- Logo -->
+    <div class="bg-[#0f1f3d] rounded-2xl px-8 py-6 mb-6 text-center shadow-xl">
+      <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mx-auto mb-3">
+        <svg width="24" height="24" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="2" width="5" height="5" rx="1" fill="white"/>
+          <rect x="9" y="2" width="5" height="5" rx="1" fill="white" opacity=".6"/>
+          <rect x="2" y="9" width="5" height="5" rx="1" fill="white" opacity=".6"/>
+          <rect x="9" y="9" width="5" height="5" rx="1" fill="white" opacity=".3"/>
+        </svg>
+      </div>
+      <div class="text-white font-bold text-lg">ComplianceHub</div>
+      <div class="text-blue-300 text-[11px] mt-0.5 font-medium uppercase tracking-widest">BlueCrow Capital · Portal Interno</div>
+    </div>
+    <!-- Form -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm px-8 py-7">
+      <div class="flex items-center gap-2 mb-6">
+        <svg class="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <h1 class="text-[14px] font-semibold text-gray-900">Acesso Restrito</h1>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Utilizador</label>
+          <input id="login-user" class="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="username" autocomplete="off" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Password</label>
+          <input id="login-pw" type="password" class="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" />
+        </div>
+        <div id="login-error" class="hidden flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3.5 py-2.5">
+          <div class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></div>
+          <span class="text-[12px] text-red-700">Credenciais incorretas. Tente novamente.</span>
+        </div>
+        <button onclick="doLogin()" class="w-full bg-[#1e3a5f] hover:bg-[#162d4a] text-white font-semibold text-[13px] py-2.5 rounded-lg transition-all mt-2">
+          Entrar
+        </button>
+        <div class="bg-gray-50 rounded-lg px-3 py-2 text-[11px] text-gray-500 text-center">
+          Demo: <strong>admin</strong> / <strong>demo123</strong> &nbsp;·&nbsp; <strong>viewer</strong> / <strong>view123</strong>
+        </div>
+      </div>
+    </div>
+    <p class="text-center text-[11px] text-gray-400 mt-4">Portal de uso interno · BlueCrow Capital · Acesso monitorizado</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     APP SHELL
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="app-shell" class="hidden flex h-screen overflow-hidden bg-[#f5f6fa]">
+
+  <!-- ── Sidebar ── -->
+  <aside class="w-[220px] min-w-[220px] bg-white border-r border-gray-200 flex flex-col overflow-hidden">
+    <div class="flex items-center gap-2.5 px-4 py-4 border-b border-gray-200">
+      <div class="w-7 h-7 rounded-md bg-[#1e3a5f] flex items-center justify-center shrink-0">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="2" width="5" height="5" rx="1" fill="white"/>
+          <rect x="9" y="2" width="5" height="5" rx="1" fill="white" opacity=".6"/>
+          <rect x="2" y="9" width="5" height="5" rx="1" fill="white" opacity=".6"/>
+          <rect x="9" y="9" width="5" height="5" rx="1" fill="white" opacity=".3"/>
+        </svg>
+      </div>
+      <div>
+        <div class="text-[13px] font-semibold text-gray-900">ComplianceHub</div>
+        <div class="text-[10px] text-gray-400">Portal Interno</div>
+      </div>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto py-2 text-[12.5px]">
+      <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3.5 pt-3 pb-1">Geral</div>
+      <button onclick="showPage('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+        <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+
+      <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3.5 pt-3 pb-1">Áreas</div>
+      <button onclick="showPage('compliance')" id="nav-compliance" class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+        <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Compliance
+        <span class="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">2</span>
+      </button>
+      <button onclick="showPage('riscos')" id="nav-riscos" class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+        <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Gestão de Riscos
+        <span class="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">2</span>
+      </button>
+      <button onclick="showPage('pbcft')" id="nav-pbcft" class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+        <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        PBC/FT
+        <span class="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">1</span>
+      </button>
+      <button onclick="showPage('rgpd')" id="nav-rgpd" class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+        <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        RGPD
+      </button>
+      <button onclick="showPage('oia')" id="nav-oia" class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+        <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        OIA
+      </button>
+
+      <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3.5 pt-3 pb-1">Recursos</div>
+      <button class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+        <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Quadro Regulatório
+      </button>
+      <button class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+        <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Legislação
+      </button>
+
+      <div id="admin-section" class="hidden">
+        <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3.5 pt-3 pb-1">Administração</div>
+        <button onclick="showPage('users')" id="nav-users" class="nav-item w-full flex items-center gap-2 px-3.5 py-1.5 text-gray-500 border-l-2 border-transparent hover:bg-gray-50 hover:text-gray-900">
+          <svg class="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/><circle cx="19" cy="7" r="2"/><path d="M22 9a2 2 0 00-2-2"/></svg>
+          Utilizadores
+        </button>
+      </div>
+    </nav>
+
+    <!-- User footer -->
+    <div class="border-t border-gray-200">
+      <div class="flex items-center gap-2 px-3.5 py-2.5">
+        <div id="user-avatar" class="w-6 h-6 rounded-full bg-[#1e3a5f] text-white flex items-center justify-center text-[10px] font-semibold shrink-0">AD</div>
+        <div class="flex-1 min-w-0">
+          <div id="user-name" class="text-[11px] font-medium text-gray-900 truncate">Administrador</div>
+          <div id="user-role" class="text-[10px] text-gray-400 truncate">Administrador</div>
+        </div>
+        <button onclick="doLogout()" title="Terminar sessão" class="text-gray-300 hover:text-red-500 transition-colors shrink-0">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main content ── -->
+  <div class="flex flex-col flex-1 overflow-hidden">
+    <!-- Topbar -->
+    <header class="h-11 border-b border-gray-200 bg-white flex items-center px-5 gap-3 shrink-0">
+      <span id="topbar-title" class="text-[13px] font-semibold text-gray-900">Dashboard</span>
+      <div class="ml-auto flex items-center gap-2">
+        <span class="text-[11px] text-gray-400" id="topbar-date"></span>
+        <span class="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-medium" id="topbar-role-badge">Admin</span>
+      </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto">
+
+      <!-- ══════ DASHBOARD PAGE ══════ -->
+      <div id="page-dashboard" class="page active p-6 space-y-5 fade-in">
+        <div>
+          <h1 class="text-xl font-semibold text-gray-900">Dashboard</h1>
+          <p class="text-sm text-gray-400 mt-0.5">Resumo operacional · BlueCrow Capital</p>
+        </div>
+        <!-- KPI row -->
+        <div class="grid grid-cols-4 gap-4">
+          <div class="bg-white rounded-lg border border-gray-200 p-4 border-b-[3px] border-b-blue-500">
+            <div class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tarefas Compliance</div>
+            <div class="text-2xl font-bold text-gray-900">12</div>
+            <div class="text-[11px] text-amber-600 mt-1">2 em atraso</div>
+          </div>
+          <div class="bg-white rounded-lg border border-gray-200 p-4 border-b-[3px] border-b-amber-500">
+            <div class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Riscos Ativos</div>
+            <div class="text-2xl font-bold text-gray-900">8</div>
+            <div class="text-[11px] text-red-600 mt-1">2 nível Alto</div>
+          </div>
+          <div class="bg-white rounded-lg border border-gray-200 p-4 border-b-[3px] border-b-green-500">
+            <div class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Participadas OIA</div>
+            <div class="text-2xl font-bold text-gray-900">22</div>
+            <div class="text-[11px] text-green-600 mt-1">21 ativas</div>
+          </div>
+          <div class="bg-white rounded-lg border border-gray-200 p-4 border-b-[3px] border-b-purple-500">
+            <div class="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Clientes KYC</div>
+            <div class="text-2xl font-bold text-gray-900">34</div>
+            <div class="text-[11px] text-red-600 mt-1">1 pendente</div>
+          </div>
+        </div>
+        <!-- Stats cards -->
+        <div class="grid grid-cols-3 gap-4">
+          <div class="bg-white rounded-2xl border border-gray-100 p-5">
+            <div class="text-[12px] font-semibold text-gray-700 mb-3">Tarefas por Estado</div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-blue-500"></div><span class="text-[12px] text-gray-600 flex-1">Em curso</span><span class="text-[12px] font-semibold">5</span></div>
+              <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-gray-400"></div><span class="text-[12px] text-gray-600 flex-1">Por iniciar</span><span class="text-[12px] font-semibold">3</span></div>
+              <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-red-500"></div><span class="text-[12px] text-gray-600 flex-1">Em atraso</span><span class="text-[12px] font-semibold">2</span></div>
+              <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-green-500"></div><span class="text-[12px] text-gray-600 flex-1">Concluído</span><span class="text-[12px] font-semibold">2</span></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-100 p-5">
+            <div class="text-[12px] font-semibold text-gray-700 mb-3">Portfolio OIA</div>
+            <div class="space-y-2">
+              <div class="flex justify-between text-[12px]"><span class="text-gray-600">Total Investido</span><span class="font-bold">104.73M€</span></div>
+              <div class="flex justify-between text-[12px]"><span class="text-gray-600">NAV Total</span><span class="font-bold text-green-600">97.42M€</span></div>
+              <div class="flex justify-between text-[12px]"><span class="text-gray-600">MOIC Médio</span><span class="font-bold text-blue-600">1.18x</span></div>
+              <div class="flex justify-between text-[12px]"><span class="text-gray-600">Fundos Ativos</span><span class="font-bold">22</span></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-2xl border border-gray-100 p-5">
+            <div class="text-[12px] font-semibold text-gray-700 mb-3">Utilizadores</div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 text-[12px]"><div class="w-6 h-6 rounded-full bg-[#1e3a5f] text-white text-[10px] font-semibold flex items-center justify-center">AD</div><span>Administrador</span><span class="ml-auto text-[10px] bg-red-50 text-red-700 px-1.5 rounded font-semibold">Admin</span></div>
+              <div class="flex items-center gap-2 text-[12px]"><div class="w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">HA</div><span>Hugo Abreu</span><span class="ml-auto text-[10px] bg-blue-50 text-blue-700 px-1.5 rounded font-semibold">Gestor</span></div>
+              <div class="flex items-center gap-2 text-[12px]"><div class="w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">MG</div><span>Manuela Garcia</span><span class="ml-auto text-[10px] bg-blue-50 text-blue-700 px-1.5 rounded font-semibold">Gestor</span></div>
+              <div class="flex items-center gap-2 text-[12px]"><div class="w-6 h-6 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center">JS</div><span>João Silva</span><span class="ml-auto text-[10px] bg-amber-50 text-amber-700 px-1.5 rounded font-semibold">Analista</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ OIA PAGE ══════ -->
+      <div id="page-oia" class="page p-6 space-y-5 fade-in">
+        <div class="flex items-start justify-between">
+          <div>
+            <h1 class="text-xl font-semibold text-gray-900">OIA — Organização de Investimentos Alternativos</h1>
+            <p class="text-sm text-gray-400 mt-0.5">BlueCrow SCR · 22 fundos · 22 participadas · 104.73M€ investido · NAV 97.42M€ · MOIC médio 1.18x</p>
+          </div>
+          <button id="btn-novo-fundo" onclick="alert('Funcionalidade disponível na app React')" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-sm transition-colors">
+            + Novo Fundo
+          </button>
+        </div>
+
+        <!-- Level 1+2: SCR → Categories -->
+        <div class="bg-white rounded-2xl border border-gray-100 p-6 overflow-x-auto">
+          <div class="flex justify-center">
+            <div class="bg-[#0f1f3d] text-white rounded-2xl px-10 py-4 shadow-lg text-center" style="min-width:300px">
+              <div class="text-[10px] font-semibold text-blue-300 uppercase tracking-widest mb-1">Sociedade de Capitais de Risco</div>
+              <div class="text-base font-bold">BlueCrow — SCR, S.A.</div>
+              <div class="text-[10px] text-gray-400 mt-1">CMVM Registada</div>
+            </div>
+          </div>
+          <div class="flex justify-center"><div class="org-stem"></div></div>
+          <div class="org-row" style="min-width:660px">
+            <div class="org-col" style="min-width:200px;max-width:280px">
+              <div class="org-stem"></div>
+              <button onclick="clickCat('fcr')" id="cat-fcr" class="rounded-xl border-2 border-gray-200 bg-white px-5 py-4 text-center transition-all w-full hover:border-blue-300 hover:shadow-md">
+                <div class="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">FCR</div>
+                <div class="text-[13px] font-bold">Capitais de Risco</div>
+                <div class="text-[10px] text-gray-400 mt-1.5 font-medium">17 fundos</div>
+              </button>
+            </div>
+            <div class="org-col" style="min-width:200px;max-width:280px">
+              <div class="org-stem"></div>
+              <button onclick="clickCat('mob')" id="cat-mob" class="rounded-xl border-2 border-gray-200 bg-white px-5 py-4 text-center transition-all w-full hover:border-blue-300 hover:shadow-md">
+                <div class="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">FIAA · PPR</div>
+                <div class="text-[13px] font-bold">Mobiliários</div>
+                <div class="text-[10px] text-gray-400 mt-1.5 font-medium">5 fundos</div>
+              </button>
+            </div>
+            <div class="org-col" style="min-width:200px;max-width:280px">
+              <div class="org-stem"></div>
+              <button onclick="clickCat('esp')" id="cat-esp" class="rounded-xl border-2 border-gray-200 bg-white px-5 py-4 text-center transition-all w-full hover:border-blue-300 hover:shadow-md">
+                <div class="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Trade Finance</div>
+                <div class="text-[13px] font-bold">Especializado</div>
+                <div class="text-[10px] text-gray-400 mt-1.5 font-medium">1 fundo</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Level 3: FCR Items -->
+        <div id="panel-fcr" class="section-panel bg-white rounded-2xl border border-blue-100 p-6 overflow-x-auto">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <button onclick="closeCat('fcr')" class="text-gray-400 hover:text-gray-700">✕</button>
+              <span class="text-gray-300">›</span>
+              Capitais de Risco <span class="text-gray-400 font-normal text-xs ml-1">— 8 fundos / grupos</span>
+            </div>
+            <button onclick="alert('Funcionalidade disponível na app React')" class="flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg">+ Nova Empresa</button>
+          </div>
+          <div class="relative h-5" style="min-width:1280px">
+            <div class="absolute top-0 bottom-0 w-px bg-blue-400" style="left:16.7%"></div>
+          </div>
+          <div class="flex justify-center"><div class="org-stem-blue"></div></div>
+          <div class="org-row" style="min-width:1280px">
+            <!-- BCIF Group -->
+            <div class="org-col" style="min-width:158px;max-width:196px">
+              <div class="org-stem-blue"></div>
+              <button onclick="clickGroup('bcif')" id="grp-bcif" class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-left transition-all w-full hover:border-indigo-300 hover:shadow-md">
+                <div class="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-1">Grupo · 5 subfundos</div>
+                <div class="text-[12px] font-bold text-gray-900 leading-tight">BCIF I — V</div>
+                <div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Innovation Fund</div>
+                <div class="mt-2 pt-2 border-t border-gray-100 text-[9px] font-semibold text-indigo-600">13 participadas</div>
+              </button>
+            </div>
+            <!-- Individual funds -->
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2013</span></div><div class="text-[11px] font-bold text-gray-900">Viriatus</div><div class="text-[10px] text-gray-400 mt-0.5">Viriatus Fund, FCR</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2014</span></div><div class="text-[11px] font-bold text-gray-900">BCG I</div><div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Growth Fund I</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-blue-600 font-semibold">1 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2016</span></div><div class="text-[11px] font-bold text-gray-900">BCN I</div><div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Northern Fund I</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2019</span></div><div class="text-[11px] font-bold text-gray-900">BC Impact</div><div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Impact Fund</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div>
+              <button onclick="clickFund('bcnt1')" id="fund-bcnt1" class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-left w-full hover:border-blue-300 hover:shadow-md transition-all">
+                <div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2021</span></div>
+                <div class="text-[11px] font-bold text-gray-900">BCNT I</div>
+                <div class="text-[10px] text-gray-400 mt-0.5 line-clamp-2">BlueCrow Next Tech Fund I</div>
+                <div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">60M€</span><span class="text-[9px] text-blue-600 font-semibold">9 emp.</span></div>
+              </button>
+            </div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2023</span></div><div class="text-[11px] font-bold text-gray-900">GGT</div><div class="text-[10px] text-gray-400 mt-0.5">Global Growth Tech Fund</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+            <!-- Dev Group -->
+            <div class="org-col" style="min-width:158px;max-width:196px">
+              <div class="org-stem-blue"></div>
+              <button onclick="clickGroup('dev')" id="grp-dev" class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-left transition-all w-full hover:border-indigo-300 hover:shadow-md">
+                <div class="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mb-1">Grupo · 5 subfundos</div>
+                <div class="text-[12px] font-bold text-gray-900 leading-tight">BCDF I</div>
+                <div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Development Fund I</div>
+                <div class="mt-2 pt-2 border-t border-gray-100 text-[9px] font-semibold text-gray-400">0 participadas</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Level 3: MOB -->
+        <div id="panel-mob" class="section-panel bg-white rounded-2xl border border-blue-100 p-6 overflow-x-auto">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <button onclick="closeCat('mob')" class="text-gray-400 hover:text-gray-700">✕</button>
+              <span class="text-gray-300">›</span>
+              Mobiliários <span class="text-gray-400 font-normal text-xs ml-1">— 5 fundos</span>
+            </div>
+          </div>
+          <div class="relative h-5" style="min-width:860px"><div class="absolute top-0 bottom-0 w-px bg-blue-400" style="left:50%"></div></div>
+          <div class="flex justify-center"><div class="org-stem-blue"></div></div>
+          <div class="org-row" style="min-width:860px">
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">FIAA</span><span class="text-[9px] text-gray-400">2017</span></div><div class="text-[11px] font-bold text-gray-900">BC Listed Property</div><div class="text-[10px] text-gray-400 mt-0.5 line-clamp-2">BlueCrow Global Listed Property Fund</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">300M€</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">FIAA</span><span class="text-[9px] text-gray-400">2023</span></div><div class="text-[11px] font-bold text-gray-900">BC Global Discovery</div><div class="text-[10px] text-gray-400 mt-0.5 line-clamp-2">BlueCrow Global Discovery Fund</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">50M€</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">FIAA</span><span class="text-[9px] text-gray-400">2018</span></div><div class="text-[11px] font-bold text-gray-900">BC Short Term</div><div class="text-[10px] text-gray-400 mt-0.5">BC Portugal Short Term Fund</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">FIAA</span><span class="text-[9px] text-gray-400">2019</span></div><div class="text-[11px] font-bold text-gray-900">BC Portugal Select</div><div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Portugal Select Fund</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-blue"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">PPR</span><span class="text-[9px] text-gray-400">2016</span></div><div class="text-[11px] font-bold text-gray-900">BC Global Opp. PPR</div><div class="text-[10px] text-gray-400 mt-0.5 line-clamp-2">BlueCrow Global Opportunities PPR</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">150M€</span><span class="text-[9px] text-gray-400">0 emp.</span></div></div></div>
+          </div>
+        </div>
+
+        <!-- Level 4: BCIF Group funds -->
+        <div id="panel-bcif" class="section-panel bg-white rounded-2xl border border-indigo-100 p-6 overflow-x-auto">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <button onclick="closeGroup('bcif')" class="text-gray-400 hover:text-gray-700">✕</button>
+              <span class="text-gray-300">›</span>
+              BCIF I — V <span class="text-gray-400 font-normal text-xs ml-1">— 5 subfundos</span>
+            </div>
+          </div>
+          <div class="relative h-5" style="min-width:860px"><div class="absolute top-0 bottom-0 w-px bg-indigo-400" style="left:6.25%"></div></div>
+          <div class="flex justify-center"><div class="org-stem-indigo"></div></div>
+          <div class="org-row" style="min-width:860px">
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-indigo"></div>
+              <button onclick="clickFund('bcif1')" id="fund-bcif1" class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-left w-full hover:border-blue-300 hover:shadow-md transition-all">
+                <div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2012</span></div>
+                <div class="text-[11px] font-bold text-gray-900">BCIF I</div>
+                <div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Innovation Fund I</div>
+                <div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-blue-600 font-semibold">3 emp.</span></div>
+              </button>
+            </div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-indigo"></div>
+              <button onclick="clickFund('bcif2')" id="fund-bcif2" class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-left w-full hover:border-blue-300 hover:shadow-md transition-all">
+                <div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2015</span></div>
+                <div class="text-[11px] font-bold text-gray-900">BCIF II</div>
+                <div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Innovation Fund II</div>
+                <div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-blue-600 font-semibold">5 emp.</span></div>
+              </button>
+            </div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-indigo"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2017</span></div><div class="text-[11px] font-bold text-gray-900">BCIF III</div><div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Innovation Fund III</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-blue-600 font-semibold">5 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-indigo"></div><div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full"><div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2018</span></div><div class="text-[11px] font-bold text-gray-900">BCIF IV</div><div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Innovation Fund IV</div><div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-blue-600 font-semibold">6 emp.</span></div></div></div>
+            <div class="org-col" style="min-width:158px;max-width:196px"><div class="org-stem-indigo"></div>
+              <button onclick="clickFund('bcif5')" id="fund-bcif5" class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-left w-full hover:border-blue-300 hover:shadow-md transition-all">
+                <div class="flex justify-between mb-2"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">FCR</span><span class="text-[9px] text-gray-400">2022</span></div>
+                <div class="text-[11px] font-bold text-gray-900">BCIF V</div>
+                <div class="text-[10px] text-gray-400 mt-0.5">BlueCrow Innovation Fund V</div>
+                <div class="flex justify-between mt-2 pt-2 border-t border-gray-100"><span class="text-[11px] font-semibold text-gray-700">—</span><span class="text-[9px] text-blue-600 font-semibold">8 emp.</span></div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Level 5: Companies (shown when fund selected) -->
+        <div id="panel-companies" class="section-panel bg-white rounded-2xl border border-blue-100 p-6 overflow-x-auto">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <button onclick="closeCompanies()" class="text-gray-400 hover:text-gray-700">✕</button>
+              <span class="text-gray-300">›</span>
+              <span id="companies-title">Participadas</span>
+            </div>
+            <button id="btn-nova-empresa" onclick="alert('Funcionalidade disponível na app React')" class="flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg">+ Nova Empresa</button>
+          </div>
+          <div id="companies-org" class="overflow-x-auto"></div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-2xl border border-gray-100">
+          <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-semibold text-gray-900">Todas as Participadas</h2>
+              <p class="text-xs text-gray-400 mt-0.5">22 empresas</p>
+            </div>
+            <button id="btn-nova-emp-table" onclick="alert('Funcionalidade disponível na app React')" class="flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg">+ Nova Empresa</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-100 bg-gray-50 text-[10px] text-gray-500 uppercase tracking-wide">
+                  <th class="px-4 py-3 text-left font-medium">Empresa</th>
+                  <th class="px-4 py-3 text-left font-medium">Setor</th>
+                  <th class="px-4 py-3 text-left font-medium">Fundos</th>
+                  <th class="px-4 py-3 text-right font-medium">Stake</th>
+                  <th class="px-4 py-3 text-right font-medium">Total Inv.</th>
+                  <th class="px-4 py-3 text-right font-medium">NAV</th>
+                  <th class="px-4 py-3 text-right font-medium">MOIC</th>
+                  <th class="px-4 py-3 text-right font-medium">Rent. Eq.</th>
+                  <th class="px-4 py-3 text-left font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="companies-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ USERS PAGE ══════ -->
+      <div id="page-users" class="page p-6 space-y-6 fade-in">
+        <div class="flex items-start justify-between">
+          <div>
+            <h1 class="text-xl font-semibold text-gray-900">Gestão de Utilizadores</h1>
+            <p class="text-sm text-gray-400 mt-0.5">4 utilizadores · 4 ativos</p>
+          </div>
+          <div class="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+            <svg class="w-4 h-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div><div class="text-[11px] font-semibold text-amber-800">Ficheiro de credenciais</div><code class="text-[11px] text-amber-700 font-mono">src/config/users.ts</code></div>
+          </div>
+        </div>
+        <div class="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4">
+          <div class="text-[13px] font-semibold text-blue-900 mb-1">Como adicionar utilizadores</div>
+          <p class="text-[12px] text-blue-700">Abra <code class="bg-blue-100 px-1 rounded">src/config/users.ts</code> e adicione um novo objeto à lista <code class="bg-blue-100 px-1 rounded">USERS</code> com os campos: <code class="bg-blue-100 px-1 rounded">username</code>, <code class="bg-blue-100 px-1 rounded">password</code>, <code class="bg-blue-100 px-1 rounded">name</code>, <code class="bg-blue-100 px-1 rounded">role</code>. Para desativar sem apagar: <code class="bg-blue-100 px-1 rounded">active: false</code>.</p>
+        </div>
+        <!-- Users table -->
+        <div class="bg-white rounded-2xl border border-gray-100">
+          <div class="px-6 py-4 border-b border-gray-100"><h2 class="text-sm font-semibold text-gray-900">Utilizadores</h2></div>
+          <table class="w-full text-sm">
+            <thead><tr class="border-b border-gray-100 bg-gray-50 text-[10px] text-gray-500 uppercase tracking-wide"><th class="px-5 py-3 text-left font-medium">Nome</th><th class="px-5 py-3 text-left font-medium">Username</th><th class="px-5 py-3 text-left font-medium">Perfil</th><th class="px-5 py-3 text-left font-medium">Permissões de escrita</th></tr></thead>
+            <tbody>
+              <tr class="border-b border-gray-50"><td class="px-5 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-[#1e3a5f] text-white text-[10px] font-semibold flex items-center justify-center">AD</div><span class="text-[12px] font-medium">Administrador</span></div></td><td class="px-5 py-3"><code class="text-[12px] bg-gray-100 px-1.5 py-0.5 rounded font-mono">Zeus</code></td><td class="px-5 py-3"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Administrador</span></td><td class="px-5 py-3"><div class="flex flex-wrap gap-1"><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium">Tudo</span><span class="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-medium">Gerir Utilizadores</span></div></td></tr>
+              <tr class="border-b border-gray-50"><td class="px-5 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">HA</div><span class="text-[12px] font-medium">Hugo Abreu</span></div></td><td class="px-5 py-3"><code class="text-[12px] bg-gray-100 px-1.5 py-0.5 rounded font-mono">HugoGod</code></td><td class="px-5 py-3"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Gestor de Compliance</span></td><td class="px-5 py-3"><div class="flex flex-wrap gap-1"><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">Compliance</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">Riscos</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">OIA</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">RGPD</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">PBC/FT</span></div></td></tr>
+              <tr class="border-b border-gray-50"><td class="px-5 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">MG</div><span class="text-[12px] font-medium">Manuela Garcia</span></div></td><td class="px-5 py-3"><code class="text-[12px] bg-gray-100 px-1.5 py-0.5 rounded font-mono">ComplianceSupremeLeader</code></td><td class="px-5 py-3"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Gestor de Compliance</span></td><td class="px-5 py-3"><div class="flex flex-wrap gap-1"><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">Compliance</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">Riscos</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">OIA</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">RGPD</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">PBC/FT</span></div></td></tr>
+              <tr class="border-b border-gray-50"><td class="px-5 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center">JS</div><span class="text-[12px] font-medium">João Silva</span></div></td><td class="px-5 py-3"><code class="text-[12px] bg-gray-100 px-1.5 py-0.5 rounded font-mono">joao.silva</code></td><td class="px-5 py-3"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Analista</span></td><td class="px-5 py-3"><div class="flex flex-wrap gap-1"><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">Compliance</span><span class="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">Riscos</span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Permissions matrix -->
+        <div class="bg-white rounded-2xl border border-gray-100">
+          <div class="px-6 py-4 border-b border-gray-100"><h2 class="text-sm font-semibold text-gray-900">Matriz de Permissões</h2><p class="text-xs text-gray-400 mt-0.5">Todos os perfis têm leitura completa em todos os módulos</p></div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="border-b border-gray-100 bg-gray-50 text-[10px] text-gray-500 uppercase tracking-wide"><th class="px-5 py-3 text-left font-medium">Módulo</th><th class="px-5 py-3 text-center font-medium"><span class="bg-red-100 text-red-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Admin</span></th><th class="px-5 py-3 text-center font-medium"><span class="bg-blue-100 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Gestor</span></th><th class="px-5 py-3 text-center font-medium"><span class="bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Analista</span></th><th class="px-5 py-3 text-center font-medium"><span class="bg-gray-100 text-gray-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">Viewer</span></th></tr></thead>
+              <tbody>
+                <tr class="border-b border-gray-50 bg-green-50/30"><td class="px-5 py-2.5 text-[12px] font-medium text-gray-700">👁 Leitura (todos os módulos)</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-green-500">✅</td></tr>
+                <tr class="border-b border-gray-50"><td class="px-5 py-2.5 text-[12px] text-gray-700">✏️ Compliance (editar)</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-gray-300">✕</td></tr>
+                <tr class="border-b border-gray-50"><td class="px-5 py-2.5 text-[12px] text-gray-700">✏️ Gestão de Riscos (editar)</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-gray-300">✕</td></tr>
+                <tr class="border-b border-gray-50"><td class="px-5 py-2.5 text-[12px] text-gray-700">✏️ PBC/FT · RGPD · OIA (editar)</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-gray-300">✕</td><td class="px-5 py-2.5 text-center text-gray-300">✕</td></tr>
+                <tr class="border-b border-gray-50 bg-red-50/30"><td class="px-5 py-2.5 text-[12px] text-gray-700">🔐 Gerir Utilizadores</td><td class="px-5 py-2.5 text-center text-green-500">✅</td><td class="px-5 py-2.5 text-center text-gray-300">✕</td><td class="px-5 py-2.5 text-center text-gray-300">✕</td><td class="px-5 py-2.5 text-center text-gray-300">✕</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════ PLACEHOLDER PAGES ══════ -->
+      <div id="page-compliance" class="page p-6 fade-in">
+        <h1 class="text-xl font-semibold text-gray-900 mb-1">Compliance</h1>
+        <p class="text-sm text-gray-400 mb-6">Plano de Actividades de Compliance · Tarefas e prazos</p>
+        <div class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-sm">Módulo completo disponível na app React (Vite + Supabase)</div>
+      </div>
+      <div id="page-riscos" class="page p-6 fade-in">
+        <h1 class="text-xl font-semibold text-gray-900 mb-1">Gestão de Riscos</h1>
+        <p class="text-sm text-gray-400 mb-6">Mapa de riscos · Heat map · Plano de mitigação</p>
+        <div class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-sm">Módulo completo disponível na app React (Vite + Supabase)</div>
+      </div>
+      <div id="page-pbcft" class="page p-6 fade-in">
+        <h1 class="text-xl font-semibold text-gray-900 mb-1">PBC/FT</h1>
+        <p class="text-sm text-gray-400 mb-6">Prevenção de Branqueamento de Capitais e Financiamento do Terrorismo</p>
+        <div class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-sm">Módulo completo disponível na app React (Vite + Supabase)</div>
+      </div>
+      <div id="page-rgpd" class="page p-6 fade-in">
+        <h1 class="text-xl font-semibold text-gray-900 mb-1">RGPD</h1>
+        <p class="text-sm text-gray-400 mb-6">Checklist · Matriz de tratamento de dados · DPIA</p>
+        <div class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-sm">Módulo completo disponível na app React (Vite + Supabase)</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════════════════════ -->
+<script>
+// ── Demo credentials (NOT production) ─────────────────────────────────────────
+const DEMO_USERS = [
+  { username:'admin',  password:'demo123',  name:'Administrador', initials:'AD', role:'admin',    roleLabel:'Administrador' },
+  { username:'gestor', password:'demo123',  name:'Ana Martins',   initials:'AM', role:'gestor',   roleLabel:'Gestor de Compliance' },
+  { username:'viewer', password:'view123',  name:'Visualizador',  initials:'VW', role:'viewer',   roleLabel:'Visualizador' },
+]
+
+// ── Portfolio data ─────────────────────────────────────────────────────────────
+const COMPANIES = [
+  { name:'Agentifai',              sector:'Inteligência Artificial', funds:['BCNT I'],                    stake:23.66, inv:7550000,  nav:16128611, moic:2.14, rent:128.8,  status:'Ativa' },
+  { name:'KIT-AR',                 sector:'—',                       funds:['BCNT I'],                    stake:0,     inv:1400000,  nav:0,        moic:0,    rent:0,      status:'Ativa' },
+  { name:'Sensei',                 sector:'Tecnologia',              funds:['BCNT I'],                    stake:6.39,  inv:5000000,  nav:5000000,  moic:1.00, rent:-0.0,   status:'Ativa' },
+  { name:'IVV Automação',          sector:'Automação Industrial',    funds:['BCNT I'],                    stake:76.88, inv:597470,   nav:2151408,  moic:3.60, rent:760.6,  status:'Ativa' },
+  { name:'Tonic Easy Medical',     sector:'Saúde Digital',           funds:['BCNT I'],                    stake:6.16,  inv:1750000,  nav:1858097,  moic:1.06, rent:6.2,    status:'Ativa' },
+  { name:'Paynest',                sector:'FinTech',                 funds:['BCNT I'],                    stake:3.75,  inv:1100000,  nav:791316,   moic:0.72, rent:31.9,   status:'Ativa' },
+  { name:'Bandora',                sector:'Tecnologia',              funds:['BCNT I'],                    stake:25.45, inv:1250000,  nav:2969342,  moic:2.38, rent:137.5,  status:'Ativa' },
+  { name:'Leadzai',                sector:'Marketing Digital',       funds:['BCNT I'],                    stake:6.33,  inv:2500002,  nav:2416500,  moic:0.97, rent:-3.3,   status:'Ativa' },
+  { name:'BIGgroup',               sector:'Tecnologia',              funds:['BCNT I'],                    stake:11.48, inv:2000000,  nav:4496472,  moic:2.25, rent:124.8,  status:'Ativa' },
+  { name:'LEF S.A.',               sector:'Indústria',               funds:['BCIF I','BCIF II','BCIF IV'], stake:18.13, inv:6930002,  nav:4519289,  moic:0.65, rent:95.6,   status:'Ativa' },
+  { name:'Viveiros da Espargueira',sector:'Aquacultura',             funds:['BCIF I','BCIF II'],          stake:10.00, inv:1965000,  nav:982135,   moic:0.50, rent:49.9,   status:'Ativa' },
+  { name:'Ingredient Odyssey S.A.',sector:'Biotecnologia Alimentar', funds:['BCIF II','BCIF III','BCIF IV','BCIF V'], stake:41.09, inv:14190000, nav:6260735, moic:0.44, rent:2.6,    status:'Ativa' },
+  { name:'Oceano Fresco',          sector:'Aquacultura',             funds:['BCIF II','BCIF III','BCIF V'], stake:15.07, inv:6385001,  nav:1860434,  moic:0.29, rent:-39.5,  status:'Ativa' },
+  { name:'Congelagos S.A.',        sector:'Agro-indústria',          funds:['BCIF III','BCIF IV','BCIF V'], stake:92.65, inv:19290965, nav:9008538,  moic:0.47, rent:-39.7,  status:'Ativa' },
+  { name:'Silicolife S.A.',        sector:'Biotecnologia',           funds:['BCIF III','BCIF IV','BCIF V'], stake:33.05, inv:6400000,  nav:4230950,  moic:0.66, rent:122.7,  status:'Ativa' },
+  { name:'Ophiomics S.A.',         sector:'Biotecnologia',           funds:['BCIF IV','BCIF V'],          stake:25.00, inv:6150000,  nav:2557248,  moic:0.42, rent:-14.8,  status:'Ativa' },
+  { name:'Thunder Foods S.A.',     sector:'Agro-alimentar',          funds:['BCIF V'],                    stake:27.58, inv:5000000,  nav:0,        moic:0.00, rent:-100.0, status:'Em saída' },
+  { name:'Gra Nutra S.A.',         sector:'Nutrição',                funds:['BCIF IV','BCIF V'],          stake:50.00, inv:12749981, nav:15170613, moic:1.19, rent:257.0,  status:'Ativa' },
+  { name:'Acecann S.A.',           sector:'Cannabis Medicinal',      funds:['BCIF V'],                    stake:2.45,  inv:3500000,  nav:24500,    moic:0.01, rent:-97.6,  status:'Ativa' },
+  { name:'Findster',               sector:'Tecnologia',              funds:['BCIF V'],                    stake:0,     inv:1401174,  nav:0,        moic:0,    rent:0,      status:'Ativa' },
+  { name:'Anybrain S.A.',          sector:'Neuro-tecnologia',        funds:['BCIF V'],                    stake:8.65,  inv:1000000,  nav:1000000,  moic:1.00, rent:-0.0,   status:'Ativa' },
+  { name:'BGW',                    sector:'Carvão Vegetal',          funds:['BCIF I','BCIF II','BCIF III','BCIF V','BCG I'], stake:85.65, inv:11457786, nav:13596425, moic:1.19, rent:18.7, status:'Ativa' },
+]
+
+const FUND_COMPANIES = {
+  bcnt1:  COMPANIES.filter(c=>c.funds.includes('BCNT I')),
+  bcif1:  COMPANIES.filter(c=>c.funds.includes('BCIF I')),
+  bcif2:  COMPANIES.filter(c=>c.funds.includes('BCIF II')),
+  bcif5:  COMPANIES.filter(c=>c.funds.includes('BCIF V')),
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+let currentUser = null
+
+function doLogin() {
+  const u = document.getElementById('login-user').value.trim()
+  const p = document.getElementById('login-pw').value
+  const found = DEMO_USERS.find(x => x.username === u && x.password === p)
+  if (found) {
+    currentUser = found
+    document.getElementById('login-screen').style.display = 'none'
+    document.getElementById('app-shell').style.display = 'flex'
+    document.getElementById('user-avatar').textContent = found.initials
+    document.getElementById('user-name').textContent   = found.name
+    document.getElementById('user-role').textContent   = found.roleLabel
+    document.getElementById('topbar-role-badge').textContent = found.roleLabel
+    if (found.role === 'admin') document.getElementById('admin-section').classList.remove('hidden')
+    if (found.role === 'viewer') {
+      document.getElementById('btn-novo-fundo').style.display = 'none'
+      document.getElementById('btn-nova-empresa').style.display = 'none'
+      document.getElementById('btn-nova-emp-table').style.display = 'none'
+    }
+    renderTable(COMPANIES)
+    document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-PT', {day:'2-digit',month:'short',year:'numeric'})
+  } else {
+    document.getElementById('login-error').classList.remove('hidden')
+  }
+}
+
+function doLogout() {
+  currentUser = null
+  document.getElementById('login-screen').style.display = 'flex'
+  document.getElementById('app-shell').style.display = 'none'
+  document.getElementById('login-user').value = ''
+  document.getElementById('login-pw').value = ''
+  document.getElementById('login-error').classList.add('hidden')
+  document.getElementById('admin-section').classList.add('hidden')
+}
+
+document.getElementById('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin() })
+document.getElementById('login-user').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-pw').focus() })
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const PAGE_TITLES = { dashboard:'Dashboard', oia:'OIA — Investimentos Alternativos', compliance:'Compliance', riscos:'Gestão de Riscos', pbcft:'PBC/FT', rgpd:'RGPD', users:'Gestão de Utilizadores' }
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('bg-blue-50','text-blue-700','border-l-blue-700','font-medium'))
+  const pg = document.getElementById('page-' + id)
+  if (pg) pg.classList.add('active')
+  const nav = document.getElementById('nav-' + id)
+  if (nav) nav.classList.add('bg-blue-50','text-blue-700','border-l-blue-700','font-medium')
+  document.getElementById('topbar-title').textContent = PAGE_TITLES[id] || id
+}
+
+// ── OIA Organogram ────────────────────────────────────────────────────────────
+function clickCat(id) {
+  ['fcr','mob','esp'].forEach(c => {
+    const el = document.getElementById('cat-'+c)
+    const panel = document.getElementById('panel-'+c)
+    if (c === id) {
+      const isOpen = panel.classList.contains('open')
+      panel.classList.toggle('open', !isOpen)
+      el.classList.toggle('border-blue-600', !isOpen)
+      el.classList.toggle('bg-blue-600', !isOpen)
+      el.classList.toggle('text-white', !isOpen)
+      el.querySelector('.text-gray-400') && el.querySelectorAll('div').forEach(d=>{})
+    } else {
+      el.classList.remove('border-blue-600','bg-blue-600','text-white')
+      panel.classList.remove('open')
+    }
+  })
+  if (id !== 'fcr') { document.getElementById('panel-bcif').classList.remove('open'); document.getElementById('panel-companies').classList.remove('open') }
+}
+
+function closeCat(id) {
+  document.getElementById('cat-'+id).classList.remove('border-blue-600','bg-blue-600','text-white')
+  document.getElementById('panel-'+id).classList.remove('open')
+  if (id === 'fcr') { document.getElementById('panel-bcif').classList.remove('open'); document.getElementById('panel-companies').classList.remove('open') }
+}
+
+function clickGroup(id) {
+  const panel = document.getElementById('panel-'+id)
+  const isOpen = panel.classList.contains('open')
+  panel.classList.toggle('open', !isOpen)
+  const grp = document.getElementById('grp-'+id)
+  grp.classList.toggle('border-indigo-500', !isOpen)
+  grp.classList.toggle('bg-indigo-50', !isOpen)
+  if (!isOpen) document.getElementById('panel-companies').classList.remove('open')
+}
+
+function closeGroup(id) {
+  document.getElementById('grp-'+id).classList.remove('border-indigo-500','bg-indigo-50')
+  document.getElementById('panel-'+id).classList.remove('open')
+  document.getElementById('panel-companies').classList.remove('open')
+}
+
+function clickFund(id) {
+  const el = document.getElementById('fund-'+id)
+  if (!el) return
+  const wasSelected = el.classList.contains('border-blue-600')
+  document.querySelectorAll('[id^="fund-"]').forEach(f => f.classList.remove('border-blue-600','bg-blue-50'))
+  if (!wasSelected) {
+    el.classList.add('border-blue-600','bg-blue-50')
+    const cosForFund = FUND_COMPANIES[id] || []
+    renderCompaniesOrg(id, cosForFund)
+    document.getElementById('panel-companies').classList.add('open')
+  } else {
+    document.getElementById('panel-companies').classList.remove('open')
+  }
+}
+
+function closeCompanies() {
+  document.querySelectorAll('[id^="fund-"]').forEach(f=>f.classList.remove('border-blue-600','bg-blue-50'))
+  document.getElementById('panel-companies').classList.remove('open')
+}
+
+const FUND_NAMES = { bcnt1:'BCNT I — Participadas (9)', bcif1:'BCIF I — Participadas (3)', bcif2:'BCIF II — Participadas (5)', bcif5:'BCIF V — Participadas (8)' }
+
+function renderCompaniesOrg(fundId, cos) {
+  document.getElementById('companies-title').textContent = FUND_NAMES[fundId] || 'Participadas'
+  const container = document.getElementById('companies-org')
+  if (!cos.length) { container.innerHTML = '<div class="py-8 text-center text-sm text-gray-400">Sem participadas neste fundo.</div>'; return }
+  const minW = cos.length * 172
+  let html = `<div class="flex justify-center"><div class="org-stem-blue"></div></div><div class="org-row" style="min-width:${minW}px">`
+  cos.forEach(c => {
+    const moicCls = c.moic >= 2 ? 'bg-green-100 text-green-700' : c.moic >= 1 ? 'bg-blue-100 text-blue-700' : c.moic > 0 ? 'bg-red-100 text-red-700' : ''
+    const stCls = c.status === 'Ativa' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+    const moicBadge = c.moic ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full ${moicCls}">${c.moic.toFixed(2)}x</span>` : ''
+    const fundPills = c.funds.map(f=>`<span class="text-[9px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-medium">${f}</span>`).join('')
+    html += `
+      <div class="org-col" style="min-width:158px;max-width:196px">
+        <div class="org-stem-blue"></div>
+        <div class="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 w-full">
+          <div class="flex items-start justify-between gap-1 mb-1.5">
+            <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+            <div class="flex items-center gap-1 flex-wrap justify-end">${moicBadge}<span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${stCls}">${c.status}</span></div>
+          </div>
+          <div class="text-[11px] font-bold text-gray-900 leading-tight">${c.name}</div>
+          ${c.sector !== '—' ? `<div class="text-[10px] text-gray-400 mt-0.5">${c.sector}</div>` : ''}
+          <div class="flex flex-wrap gap-0.5 mt-1.5">${fundPills}</div>
+          <div class="grid grid-cols-2 gap-x-2 mt-2 pt-2 border-t border-gray-100">
+            <div><div class="text-[9px] text-gray-400">Stake</div><div class="text-[11px] font-bold text-gray-800">${c.stake ? c.stake + '%' : '—'}</div></div>
+            <div><div class="text-[9px] text-gray-400">NAV</div><div class="text-[11px] font-bold text-gray-800">${fmtM(c.nav)}</div></div>
+          </div>
+        </div>
+      </div>`
+  })
+  html += '</div>'
+  container.innerHTML = html
+}
+
+function renderTable(cos) {
+  const tbody = document.getElementById('companies-table-body')
+  let html = ''
+  cos.forEach((c, i) => {
+    const moicCls = c.moic >= 2 ? 'text-green-600' : c.moic >= 1 ? 'text-blue-600' : c.moic > 0 ? 'text-red-500' : 'text-gray-400'
+    const rentCls = c.rent > 0 ? 'text-green-600' : c.rent < 0 ? 'text-red-500' : 'text-gray-400'
+    const stCls   = c.status === 'Ativa' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+    const fundPills = c.funds.map(f=>`<span class="text-[9px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-medium">${f}</span>`).join('')
+    const bg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
+    html += `
+      <tr class="${bg} border-b border-gray-50 hover:bg-gray-50">
+        <td class="px-4 py-2.5 font-medium text-gray-900 text-[12px]">${c.name}</td>
+        <td class="px-4 py-2.5 text-gray-500 text-[12px]">${c.sector}</td>
+        <td class="px-4 py-2.5"><div class="flex flex-wrap gap-0.5">${fundPills}</div></td>
+        <td class="px-4 py-2.5 text-right font-semibold text-[12px] text-gray-800">${c.stake ? c.stake + '%' : '—'}</td>
+        <td class="px-4 py-2.5 text-right text-[12px] text-gray-700">${fmtM(c.inv)}</td>
+        <td class="px-4 py-2.5 text-right text-[12px] font-semibold text-gray-800">${fmtM(c.nav)}</td>
+        <td class="px-4 py-2.5 text-right"><span class="text-[11px] font-bold ${moicCls}">${c.moic ? c.moic.toFixed(2) + 'x' : '—'}</span></td>
+        <td class="px-4 py-2.5 text-right text-[12px]"><span class="font-medium ${rentCls}">${c.rent ? c.rent.toFixed(1) + '%' : '—'}</span></td>
+        <td class="px-4 py-2.5"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${stCls}">${c.status}</span></td>
+      </tr>`
+  })
+  tbody.innerHTML = html
+}
+
+function fmtM(n) {
+  if (!n) return '—'
+  return Math.abs(n) >= 1e6 ? (n/1e6).toFixed(2) + 'M€' : Math.abs(n) >= 1e3 ? (n/1e3).toFixed(0) + 'k€' : n + '€'
+}
+
+// Init default nav
+showPage('dashboard')
+</script>
+</body>
+</html>
