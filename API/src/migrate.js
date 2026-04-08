@@ -1,6 +1,147 @@
-const { compPool } = require('./db')
+const { compPool, avPool } = require('./db')
 
 async function migrate() {
+  // ── Tabelas normalizadas Asset Valuation (avPool) ───────────────────────────
+  const avMigrations = [
+    `CREATE TABLE IF NOT EXISTS av_companies (
+      id                   TEXT PRIMARY KEY,
+      name                 TEXT NOT NULL DEFAULT '',
+      company_type         TEXT,
+      sector               TEXT,
+      country              TEXT,
+      website              TEXT,
+      balancete_url        TEXT,
+      summary              TEXT,
+      total_shares         NUMERIC,
+      esop                 NUMERIC,
+      other_dilutive       NUMERIC,
+      series_b_shares      NUMERIC,
+      series_b_price       NUMERIC,
+      priority             TEXT,
+      score_financial      NUMERIC,
+      score_liquidity      NUMERIC,
+      score_strategic      NUMERIC,
+      fund_shares          JSONB,
+      fund_shares_override JSONB,
+      created_at           TIMESTAMPTZ DEFAULT NOW(),
+      updated_at           TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_tranches (
+      id                    TEXT PRIMARY KEY,
+      company_id            TEXT NOT NULL REFERENCES av_companies(id) ON DELETE CASCADE,
+      fund                  TEXT NOT NULL,
+      type                  TEXT NOT NULL,
+      amount                NUMERIC DEFAULT 0,
+      shares                NUMERIC,
+      price_per_share       NUMERIC,
+      date                  TEXT,
+      converted             BOOLEAN DEFAULT FALSE,
+      from_conversion       BOOLEAN DEFAULT FALSE,
+      total_shares_at_event NUMERIC,
+      ownership_override    NUMERIC
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_sales (
+      id         TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES av_companies(id) ON DELETE CASCADE,
+      fund       TEXT NOT NULL,
+      amount     NUMERIC DEFAULT 0,
+      shares     NUMERIC,
+      date       TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_financials (
+      id               TEXT PRIMARY KEY,
+      company_id       TEXT NOT NULL REFERENCES av_companies(id) ON DELETE CASCADE,
+      year             INTEGER NOT NULL,
+      revenue          NUMERIC,
+      equity           NUMERIC,
+      total_assets     NUMERIC,
+      total_liabilities NUMERIC,
+      net_profit       NUMERIC
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_cap_table (
+      id         TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES av_companies(id) ON DELETE CASCADE,
+      name       TEXT NOT NULL DEFAULT '',
+      type       TEXT NOT NULL DEFAULT 'Other',
+      shares     NUMERIC,
+      pct        NUMERIC,
+      round      TEXT,
+      notes      TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_runway (
+      company_id    TEXT PRIMARY KEY REFERENCES av_companies(id) ON DELETE CASCADE,
+      cash_balance  NUMERIC,
+      monthly_burn  NUMERIC,
+      last_updated  TEXT,
+      notes         TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_pipeline (
+      company_id    TEXT PRIMARY KEY REFERENCES av_companies(id) ON DELETE CASCADE,
+      current_stage TEXT,
+      dates         JSONB DEFAULT '{}',
+      notes         TEXT,
+      history       JSONB DEFAULT '[]'
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_documents (
+      id         TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES av_companies(id) ON DELETE CASCADE,
+      title      TEXT NOT NULL DEFAULT '',
+      url        TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_log (
+      id         TEXT PRIMARY KEY,
+      company_id TEXT NOT NULL REFERENCES av_companies(id) ON DELETE CASCADE,
+      date       TEXT NOT NULL,
+      text       TEXT NOT NULL DEFAULT ''
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_valuations (
+      id                  TEXT PRIMARY KEY,
+      company_id          TEXT NOT NULL,
+      date                TEXT NOT NULL,
+      equity_value        NUMERIC DEFAULT 0,
+      method              TEXT,
+      wacc                NUMERIC,
+      beta                NUMERIC,
+      ke                  NUMERIC,
+      kd                  NUMERIC,
+      notes               TEXT,
+      bp_path             TEXT,
+      bp_revenue_cagr     NUMERIC,
+      bp_ebitda_margin_ty NUMERIC,
+      bp_ebit_margin_ty   NUMERIC,
+      bp_capex_revenue_ty NUMERIC,
+      bp_nwc_revenue_ty   NUMERIC,
+      bp_explicit_years   NUMERIC,
+      bp_notes            TEXT,
+      created_at          TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_debt_assessment (
+      id              TEXT PRIMARY KEY,
+      valuation_id    TEXT NOT NULL REFERENCES av_valuations(id) ON DELETE CASCADE,
+      label           TEXT NOT NULL DEFAULT '',
+      instrument_type TEXT,
+      nominal_value   NUMERIC DEFAULT 0,
+      fair_value      NUMERIC DEFAULT 0,
+      rate            NUMERIC,
+      kd              NUMERIC,
+      notes           TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS av_funds (
+      fund        TEXT PRIMARY KEY,
+      subscrito   NUMERIC DEFAULT 0,
+      adjustments JSONB DEFAULT '[]'
+    )`,
+  ]
+
+  for (const sql of avMigrations) {
+    try {
+      await avPool.query(sql)
+    } catch (e) {
+      console.error('[migrate] AV Erro:', e.message, '\nSQL:', sql.slice(0, 80))
+    }
+  }
+
+
   const migrations = [
     // 2FA columns on portal_users
     `ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS totp_secret TEXT`,

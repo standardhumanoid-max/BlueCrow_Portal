@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useDatabase } from '../hooks/useDatabase'
-import { FUNDS, CONVERTIBLE, VALUATION_METHODS, COMPANY_TYPES } from '../types/database'
+import { FUNDS, CONVERTIBLE, VALUATION_METHODS, COMPANY_TYPES, PRIORITY_OPTIONS } from '../types/database'
 import type {
   CapTableShareholder,
   Company,
+  CompanyDocument,
   DebtAssessmentItem,
   FinancialYear,
+  Priority,
   RunwayData,
   Sale,
   ShareholderType,
@@ -33,7 +35,11 @@ function emptyCompany(): Company {
     capTable: [],
     runway: {},
     pipeline: { currentStage: 'Não iniciado', dates: {}, notes: '', history: [] },
+    documents: [],
   }
+}
+function emptyDocument(): CompanyDocument {
+  return { id: uid(), title: '' }
 }
 function emptyTranche(): Tranche {
   return { id: uid(), fund: FUNDS[0], type: 'Equity', amount: 0 }
@@ -257,6 +263,45 @@ export function SettingsPage({ initialCompanyId, initialTab }: SettingsPageProps
                   <FieldNum label="Series B Ações" value={draft.seriesBShares} onChange={v => updateDraft({ seriesBShares: v })} />
                   <FieldNum label="Series B Preço (€)" value={draft.seriesBPrice} onChange={v => updateDraft({ seriesBPrice: v })} />
                 </div>
+
+                {/* Avaliação Qualitativa */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 14 }}>
+                    Avaliação Qualitativa
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div className="field" style={{ maxWidth: 220 }}>
+                      <label className="field-label">Prioridade</label>
+                      <select
+                        className="field-input"
+                        value={draft.priority ?? ''}
+                        onChange={e => updateDraft({ priority: e.target.value as Priority || undefined })}
+                        style={{ height: 36 }}
+                      >
+                        <option value="">—</option>
+                        {PRIORITY_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    {(['scoreFinancial', 'scoreLiquidity', 'scoreStrategic'] as const).map(key => {
+                      const labels: Record<string, string> = { scoreFinancial: 'Financeiro', scoreLiquidity: 'Liquidez', scoreStrategic: 'Estratégico' }
+                      const val = draft[key] ?? 0
+                      return (
+                        <div key={key} className="field">
+                          <label className="field-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>{labels[key]}</span>
+                            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{val}/10</span>
+                          </label>
+                          <input
+                            type="range" min={0} max={10} step={0.5}
+                            value={val}
+                            onChange={e => updateDraft({ [key]: Number(e.target.value) } as Partial<Company>)}
+                            style={{ width: '100%', accentColor: 'var(--gold-500)', cursor: 'pointer' }}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -265,6 +310,7 @@ export function SettingsPage({ initialCompanyId, initialTab }: SettingsPageProps
               <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
                 <div style={twoCol}>
                   <Field label="Website" value={draft.website ?? ''} onChange={v => updateDraft({ website: v || undefined })} />
+                  <Field label="Link do Balancete" value={draft.balanceteUrl ?? ''} onChange={v => updateDraft({ balanceteUrl: v || undefined })} />
                 </div>
 
                 <div className="field">
@@ -275,6 +321,46 @@ export function SettingsPage({ initialCompanyId, initialTab }: SettingsPageProps
                     rows={3}
                     style={textareaStyle}
                   />
+                </div>
+
+                {/* Documentos */}
+                <div className="card">
+                  <div className="card-header">
+                    <span className="card-title">Documentos</span>
+                    <button style={iconBtn} onClick={() => updateDraft({ documents: [...(draft.documents ?? []), emptyDocument()] })}>
+                      + Documento
+                    </button>
+                  </div>
+                  {(draft.documents ?? []).length === 0 && (
+                    <div className="empty-state" style={{ padding: '16px 14px' }}>
+                      Sem documentos. Adiciona quantos quiseres, incluindo vários semestres de contas.
+                    </div>
+                  )}
+                  {(draft.documents ?? []).map((doc, i) => (
+                    <div key={doc.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, padding: '8px 14px', borderTop: i === 0 ? '1px solid var(--border)' : undefined }}>
+                      <input
+                        className="field-input"
+                        placeholder="Título (ex: Contas S2 2025)"
+                        value={doc.title}
+                        onChange={e => updateDraft({ documents: (draft.documents ?? []).map(d => d.id === doc.id ? { ...d, title: e.target.value } : d) })}
+                      />
+                      <input
+                        className="field-input"
+                        placeholder="URL (opcional)"
+                        value={doc.url ?? ''}
+                        onChange={e => updateDraft({ documents: (draft.documents ?? []).map(d => d.id === doc.id ? { ...d, url: e.target.value || undefined } : d) })}
+                      />
+                      <button style={{ ...iconBtn, color: 'var(--crimson-400)' }}
+                        onClick={() => updateDraft({ documents: (draft.documents ?? []).filter(d => d.id !== doc.id) })}>
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {(draft.documents ?? []).length > 0 && (
+                    <div style={{ padding: '8px 14px', fontSize: 11, color: 'var(--text-muted)' }}>
+                      Usa o título para descrever o período, por exemplo: 'Contas S2 2025', 'Contas S1 2025', 'BP 2026', etc.
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

@@ -80,6 +80,15 @@ export interface PipelineData {
 export const COMPANY_TYPES = ['Equity', 'Imobiliário', 'Outro'] as const
 export type CompanyType = typeof COMPANY_TYPES[number]
 
+export const PRIORITY_OPTIONS = ['Alta', 'Média', 'Baixa', 'Watchlist'] as const
+export type Priority = typeof PRIORITY_OPTIONS[number]
+
+export interface CompanyDocument {
+  id: string
+  title: string
+  url?: string
+}
+
 export interface Company {
   id: string
   name: string
@@ -87,12 +96,17 @@ export interface Company {
   sector?: string
   country?: string
   website?: string
+  balanceteUrl?: string
   summary?: string
   totalShares?: number
   esop?: number
   otherDilutive?: number
   seriesBShares?: number
   seriesBPrice?: number
+  priority?: Priority
+  scoreFinancial?: number
+  scoreLiquidity?: number
+  scoreStrategic?: number
   fundShares?: Record<string, number>
   fundSharesOverride?: Record<string, number>
   tranches: Tranche[]
@@ -102,6 +116,7 @@ export interface Company {
   capTable?: CapTableShareholder[]
   runway?: RunwayData
   pipeline?: PipelineData
+  documents?: CompanyDocument[]
 }
 
 export const VALUATION_METHODS = ['DCF', 'TMR', 'Custo de Aquisição', 'Múltiplos', 'NAV Imobiliário', 'Outro'] as const
