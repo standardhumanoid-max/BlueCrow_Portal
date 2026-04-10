@@ -3,7 +3,7 @@ const express    = require('express')
 const cors       = require('cors')
 const path       = require('path')
 const rateLimit  = require('express-rate-limit')
-const { avPool, compPool } = require('./db')
+const { avPool, compPool, gaPool } = require('./db')
 const { migrate } = require('./migrate')
 const { requireAuth } = require('./middleware/auth')
 
@@ -19,7 +19,8 @@ const cmvmRouter       = require('./routes/cmvm')
 const adminRouter      = require('./routes/admin')
 const authRouter       = require('./routes/auth')
 const settingsRouter   = require('./routes/settings')
-const historyRouter    = require('./routes/history')
+const historyRouter      = require('./routes/history')
+const gestaoAtivosRouter = require('./routes/gestaoAtivos')
 
 const app  = express()
 const PORT = process.env.PORT || 3001
@@ -65,7 +66,8 @@ app.get('/api/health', async (req, res) => {
   try {
     await avPool.query('SELECT 1')
     await compPool.query('SELECT 1')
-    res.json({ status: 'ok', databases: { asset_valuation: 'connected', compliance: 'connected' }, time: new Date().toISOString() })
+    await gaPool.query('SELECT 1')
+    res.json({ status: 'ok', databases: { asset_valuation: 'connected', compliance: 'connected', asset_management: 'connected' }, time: new Date().toISOString() })
   } catch (e) {
     res.status(500).json({ status: 'error', error: e.message })
   }
@@ -82,6 +84,7 @@ app.use('/api/cmvm',       requireAuth, cmvmRouter)
 app.use('/api/admin',      adminRouter)   // auth+admin já dentro do router
 app.use('/api/settings',   requireAuth, settingsRouter)
 app.use('/api/history',    requireAuth, historyRouter)
+app.use('/api/ga',         requireAuth, gestaoAtivosRouter)
 
 // ── Frontend estático ──────────────────────────────────────────────────────────
 app.use(express.static(DIST))

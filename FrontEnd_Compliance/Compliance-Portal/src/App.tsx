@@ -6,6 +6,7 @@ import { useStore } from '@/store/useStore'
 import { PortalHub, type PortalId } from '@/portals/hub/PortalHub'
 import { AssetValuationPortal } from '@/portals/asset-valuation/AssetValuationPortal'
 import { AdminPortal }          from '@/portals/admin/AdminPortal'
+import { GestaoAtivosPortal }   from '@/portals/gestao-ativos/GestaoAtivosPortal'
 
 // Pages
 import { Dashboard }       from '@/pages/Dashboard'
@@ -144,6 +145,10 @@ function AppContent({
 
   if (activePortal === 'asset-valuation') {
     return <AssetValuationPortal onBackToHub={() => onSelectPortal('hub')} />
+  }
+
+  if (activePortal === 'gestao-ativos') {
+    return <GestaoAtivosPortal onBackToHub={() => onSelectPortal('hub')} />
   }
 
   if (activePortal === 'admin-panel') {

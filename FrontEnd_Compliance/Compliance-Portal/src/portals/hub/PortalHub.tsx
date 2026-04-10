@@ -10,12 +10,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { Eye, EyeOff, Lock, Shield, LogOut, Smartphone } from 'lucide-react'
 
-export type PortalId = 'compliance' | 'asset-valuation' | 'investment-analysis' | 'investor-relations' | 'admin-panel'
+export type PortalId = 'compliance' | 'asset-valuation' | 'gestao-ativos' | 'investment-analysis' | 'investor-relations' | 'admin-panel'
 
 // Mapa PortalId → chave usada na tabela portal_users
 const PORTAL_KEY: Partial<Record<PortalId, string>> = {
   'compliance':      'compliance',
   'asset-valuation': 'asset_valuation',
+  'gestao-ativos':   'gestao_ativos',
 }
 
 interface Portal {
@@ -36,6 +37,15 @@ const PORTALS: Portal[] = [
     subtitle:    'Asset Valuation',
     description: 'Modelos de avaliação, due diligence e reporting de ativos imobiliários e capital de risco.',
     gradient:    'from-amber-800 via-orange-900 to-stone-900',
+    iconPath:    'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
+    active:      true,
+  },
+  {
+    id:          'gestao-ativos',
+    title:       'Gestão de Ativos',
+    subtitle:    'Asset Management',
+    description: 'Portefólio imobiliário, arrendamentos, avaliações, BOVs e documentação de ativos.',
+    gradient:    'from-stone-700 via-stone-800 to-slate-900',
     iconPath:    'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
     active:      true,
   },
