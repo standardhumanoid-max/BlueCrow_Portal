@@ -254,6 +254,77 @@ async function migrate() {
     }
   }
 
+  // ── Infraestrutura de histórico (triggers automáticos) ────────────────────
+  const COMP_HISTORY_TABLES = [
+    'comp_tasks', 'comp_risks', 'comp_clients', 'comp_incumprimentos',
+    'comp_checklist', 'comp_matriz', 'comp_dpias', 'comp_roadmap',
+    'comp_cmvm_supervisoes', 'comp_cmvm_sup_coms', 'comp_cmvm_respostas', 'comp_cmvm_comunicacoes',
+    'comp_available_years',
+    'comp_leg_diplomas', 'comp_leg_analises', 'comp_leg_consultas',
+    'comp_scr_fund_docs', 'comp_scr_fund_info',
+    'comp_oia_companies', 'comp_oia_funds', 'comp_oia_comparacoes',
+    'comp_oia_pipeline_inv', 'comp_oia_pipeline_deinv',
+    'portal_users',
+    'comp_rgpd_dpias_full', 'comp_rgpd_avaliacoes_iniciais',
+    'comp_rgpd_plano', 'comp_rgpd_retencao', 'comp_rgpd_incidentes',
+    'comp_pbcft_registos',
+    'comp_reportes', 'comp_reportes_comunicacoes',
+    'comp_quadro_reg',
+    'comp_ciber_risks', 'comp_ciber_improvements', 'comp_ciber_checklist', 'comp_ciber_changelog',
+  ]
+  const AV_HISTORY_TABLES = [
+    'av_companies', 'av_tranches', 'av_sales', 'av_financials', 'av_cap_table',
+    'av_runway', 'av_pipeline', 'av_documents', 'av_log', 'av_valuations',
+    'av_debt_assessment', 'av_funds',
+  ]
+
+  for (const [pool, tables] of [[compPool, COMP_HISTORY_TABLES], [avPool, AV_HISTORY_TABLES]]) {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS _row_history (
+          history_id BIGSERIAL PRIMARY KEY,
+          table_name TEXT NOT NULL,
+          operation  TEXT NOT NULL,
+          changed_at TIMESTAMPTZ DEFAULT NOW(),
+          row_id     TEXT NOT NULL,
+          row_data   JSONB NOT NULL
+        )
+      `)
+      await pool.query(`
+        CREATE OR REPLACE FUNCTION _save_row_history() RETURNS TRIGGER AS $$
+        BEGIN
+          INSERT INTO _row_history(table_name, operation, row_id, row_data)
+          VALUES (TG_TABLE_NAME, TG_OP, OLD.id::TEXT, to_jsonb(OLD));
+          RETURN OLD;
+        END;
+        $$ LANGUAGE plpgsql;
+      `)
+      for (const table of tables) {
+        const trig = `trg_history_${table}`
+        try {
+          await pool.query(`
+            DO $do$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger t
+                JOIN pg_class c ON c.oid = t.tgrelid
+                WHERE t.tgname = '${trig}' AND c.relname = '${table}'
+              ) THEN
+                EXECUTE 'CREATE TRIGGER ${trig}
+                  BEFORE DELETE OR UPDATE ON ${table}
+                  FOR EACH ROW EXECUTE FUNCTION _save_row_history()';
+              END IF;
+            END $do$;
+          `)
+        } catch (e) {
+          console.error(`[migrate] Trigger ${trig}:`, e.message)
+        }
+      }
+    } catch (e) {
+      console.error('[migrate] History infra:', e.message)
+    }
+  }
+
   console.log('[migrate] Migrações aplicadas.')
 }
 

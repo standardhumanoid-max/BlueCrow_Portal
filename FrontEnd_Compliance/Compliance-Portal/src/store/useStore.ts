@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 
 // ─── API helper ───────────────────────────────────────────────────────────────
-import { API_BASE } from '@/lib/api'
+import { API_BASE, authFetch } from '@/lib/api'
 const COMP_API = `${API_BASE}/api/comp`
+const fetch = authFetch
 const api = {
   async upsert(table: string, id: string, data: Record<string, unknown>) {
     await fetch(`${COMP_API}/${table}`, {
@@ -11,8 +12,14 @@ const api = {
       body: JSON.stringify({ id, data }),
     })
   },
-  async del(table: string, id: string) {
-    await fetch(`${COMP_API}/${table}/${id}`, { method: 'DELETE' })
+  async del(table: string, id: string, label?: string): Promise<Record<string, unknown> | null> {
+    const res  = await fetch(`${COMP_API}/${table}/${id}`, { method: 'DELETE' })
+    const json = await res.json().catch(() => ({}))
+    const deleted: Record<string, unknown> | null = json.deleted ?? null
+    if (deleted && label) {
+      useUndoStore.getState().showUndo({ table, label, rowData: deleted })
+    }
+    return deleted
   },
   async bulk(table: string, items: { id: string; [k: string]: unknown }[]) {
     const rows = items.map(({ id, ...rest }) => ({ id, data: rest }))
@@ -25,6 +32,7 @@ const api = {
 }
 
 import type { PageId, ComplianceTask, Risk, KYCClient, ChecklistItem, MatrizTratamento, DPIA, LegDocument, Incumprimento, AuditLog, AuditAction, SecurityAlert, RoadmapItem } from '@/types'
+import { useUndoStore } from '@/store/useUndoStore'
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 interface AppState {
@@ -187,7 +195,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
     async function fetchTable(table: string) {
       const res = await fetch(`${API}/${table}`)
-      if (!res.ok) return []
+      if (!res.ok) {
+        console.warn(`[loadAll] ${table} → HTTP ${res.status}`)
+        return []
+      }
       return res.json()
     }
     try {
@@ -257,7 +268,7 @@ export const useStore = create<AppState>((set, get) => ({
   deleteTask: async (id) => {
     const old = get().tasks.find(x => x.id === id)
     set((s) => ({ tasks: s.tasks.filter((x) => x.id !== id) }))
-    await api.del('comp_tasks', id)
+    await api.del('comp_tasks', id, old?.tarefa ?? id)
     get().addAuditLog({ action: 'DELETE', entity: 'Tarefa', entity_id: id, entity_label: `${id} — ${old?.tarefa ?? id}` })
   },
   importTasks: async (rows, ano) => {
@@ -316,7 +327,7 @@ export const useStore = create<AppState>((set, get) => ({
   deleteRisk: async (id) => {
     const old = get().risks.find(x => x.id === id)
     set((s) => { const u = s.risks.filter((x) => x.id !== id); saveRisksCache(u); return { risks: u } })
-    await api.del('comp_risks', id)
+    await api.del('comp_risks', id, old?.risco ?? id)
     get().addAuditLog({ action: 'DELETE', entity: 'Risco', entity_id: id, entity_label: `${id} — ${old?.risco ?? id}` })
   },
 
@@ -339,7 +350,7 @@ export const useStore = create<AppState>((set, get) => ({
   deleteClient: async (id) => {
     const old = get().clients.find(x => x.id === id)
     set((s) => ({ clients: s.clients.filter((x) => x.id !== id) }))
-    await api.del('comp_clients', id)
+    await api.del('comp_clients', id, old?.name ?? id)
     get().addAuditLog({ action: 'DELETE', entity: 'Cliente KYC', entity_id: id, entity_label: `${id} — ${old?.name ?? id}` })
   },
 
@@ -364,7 +375,7 @@ export const useStore = create<AppState>((set, get) => ({
   deleteIncumprimento: async (id) => {
     const old = get().incumprimentos.find(x => x.id === id)
     set((s) => ({ incumprimentos: s.incumprimentos.filter((x) => x.id !== id) }))
-    await api.del('comp_incumprimentos', id)
+    await api.del('comp_incumprimentos', id, old?.descricao ?? id)
     get().addAuditLog({ action: 'DELETE', entity: 'Incumprimento', entity_id: id, entity_label: `${id} — ${old?.descricao ?? id}` })
   },
 
@@ -394,7 +405,7 @@ export const useStore = create<AppState>((set, get) => ({
   deleteMatriz: async (id) => {
     const old = get().matrizTratamento.find(x => x.id === id)
     set((s) => ({ matrizTratamento: s.matrizTratamento.filter((x) => x.id !== id) }))
-    await api.del('comp_matriz', id)
+    await api.del('comp_matriz', id, old?.nome ?? id)
     get().addAuditLog({ action: 'DELETE', entity: 'Matriz Tratamento', entity_id: id, entity_label: `${id} — ${old?.nome ?? id}` })
   },
 
@@ -411,7 +422,7 @@ export const useStore = create<AppState>((set, get) => ({
   deleteDPIA: async (id) => {
     const old = get().dpias.find(x => x.id === id)
     set((s) => ({ dpias: s.dpias.filter((x) => x.id !== id) }))
-    await api.del('comp_dpias', id)
+    await api.del('comp_dpias', id, old?.nome ?? id)
     get().addAuditLog({ action: 'DELETE', entity: 'DPIA', entity_id: id, entity_label: `${id} — ${old?.nome ?? id}` })
   },
 
@@ -558,7 +569,8 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
   deleteRoadmapItem: (id) => {
+    const old = get().roadmapItems.find(r => r.id === id)
     set((s) => ({ roadmapItems: s.roadmapItems.filter(r => r.id !== id) }))
-    api.del('comp_roadmap', id).catch(() => {})
+    api.del('comp_roadmap', id, old?.title ?? id).catch(() => {})
   },
 }))

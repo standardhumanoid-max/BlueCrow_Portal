@@ -102,21 +102,22 @@ export function PortalHub({ onSelectPortal }: Props) {
   const [locked,      setLocked]     = useState(false)
   const [remaining,   setRemaining]  = useState(0)
   const [attempts,    setAttempts]   = useState(0)
+  const [heliLanded, setHeliLanded] = useState(false)
 
-  const refreshLockout = useCallback(() => {
-    const info = lockoutInfo(email.trim())
+  const refreshLockout = useCallback(async () => {
+    const info = await lockoutInfo(email.trim())
     setLocked(info.locked); setRemaining(info.remaining); setAttempts(info.attempts)
   }, [email, lockoutInfo])
 
-  useEffect(() => { refreshLockout() }, [refreshLockout])
+  useEffect(() => { void refreshLockout() }, [refreshLockout])
 
   useEffect(() => {
     if (!locked) return
-    const id = setInterval(() => {
-      const info = lockoutInfo(email.trim())
+    const id = setInterval(async () => {
+      const info = await lockoutInfo(email.trim())
       setRemaining(info.remaining)
       if (!info.locked) { setLocked(false); setError(null) }
-    }, 1000)
+    }, 5000)
     return () => clearInterval(id)
   }, [locked, email, lockoutInfo])
 
@@ -126,7 +127,7 @@ export function PortalHub({ onSelectPortal }: Props) {
     setError(null); setLoading(true)
     const result = await login(email.trim(), password)
     if (result.error) {
-      setError(result.error); refreshLockout()
+      setError(result.error); void refreshLockout()
     } else if (result.needsSetup && result.userId) {
       // Primeiro login — gerar QR e mostrar ecrã de setup
       setPendingId(result.userId)
@@ -158,6 +159,11 @@ export function PortalHub({ onSelectPortal }: Props) {
     setLoading(false)
   }
 
+  useEffect(() => {
+    const id = setTimeout(() => setHeliLanded(true), 72_000)
+    return () => clearTimeout(id)
+  }, [])
+
   function fmtRemaining(secs: number) {
     const m = Math.floor(secs / 60); const s = secs % 60
     return m > 0 ? `${m}m ${s}s` : `${s}s`
@@ -186,60 +192,119 @@ export function PortalHub({ onSelectPortal }: Props) {
       style={{ backgroundImage: DOT_PATTERN }}
     >
       {/* ── Ingenuity helicopter — contorno animado ── */}
+      <style>{`
+        @keyframes heliRoam {
+          0%   { transform: translate(6vw,  56px); }
+          14%  { transform: translate(52vw, 28px); }
+          28%  { transform: translate(22vw, 62px); }
+          42%  { transform: translate(65vw, 32px); }
+          57%  { transform: translate(10vw, 52px); }
+          71%  { transform: translate(58vw, 24px); }
+          85%  { transform: translate(30vw, 58px); }
+          100% { transform: translate(6vw,  56px); }
+        }
+      `}</style>
       <svg
-        viewBox="0 0 520 380"
+        viewBox="0 0 520 415"
         fill="none"
         stroke="white"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="absolute top-[60px] left-1/2 -translate-x-1/2 w-[380px] opacity-[0.05] pointer-events-none select-none"
+        style={heliLanded ? {
+          position: 'absolute',
+          top: 0, left: 0,
+          width: 180,
+          opacity: 0.14,
+          pointerEvents: 'none',
+          userSelect: 'none',
+          zIndex: 0,
+          transform: 'translate(calc(50vw + 155px), 76px)',
+          transition: 'transform 3s ease-in-out',
+        } : {
+          position: 'absolute',
+          top: 0, left: 0,
+          width: 180,
+          opacity: 0.12,
+          pointerEvents: 'none',
+          userSelect: 'none',
+          zIndex: 0,
+          animation: 'heliRoam 13s ease-in-out infinite',
+        }}
         aria-hidden="true"
       >
         {/* Flutuação suave do corpo inteiro */}
         <g>
           <animateTransform attributeName="transform" type="translate"
-            values="0,0;0,-7;0,0" dur="3.5s" repeatCount="indefinite"
+            values="0,0;0,-8;0,0" dur="3.5s" repeatCount="indefinite"
             calcMode="spline" keyTimes="0;0.5;1"
             keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
 
-          {/* Estrutura estática */}
-          <rect x="195" y="190" width="130" height="80" rx="6" strokeWidth="3"/>
-          <rect x="205" y="172" width="110" height="18" rx="3" strokeWidth="2.5"/>
-          <line x1="260" y1="172" x2="260" y2="190" strokeWidth="2"/>
-          <line x1="260" y1="130" x2="260" y2="172" strokeWidth="3"/>
-          <circle cx="260" cy="126" r="10" strokeWidth="2.5"/>
-          <circle cx="260" cy="140" r="7"  strokeWidth="2"/>
-          <line x1="210" y1="270" x2="170" y2="330" strokeWidth="2.5"/>
-          <line x1="310" y1="270" x2="350" y2="330" strokeWidth="2.5"/>
-          <line x1="155" y1="330" x2="365" y2="330" strokeWidth="3"/>
-          <line x1="195" y1="210" x2="165" y2="220" strokeWidth="1.5"/>
-          <line x1="325" y1="210" x2="355" y2="220" strokeWidth="1.5"/>
-          <line x1="165" y1="220" x2="165" y2="255" strokeWidth="1.5"/>
-          <line x1="355" y1="220" x2="355" y2="255" strokeWidth="1.5"/>
+          {/* ── Antena ── */}
+          <line x1="260" y1="56" x2="260" y2="73" strokeWidth="1.5"/>
+          <circle cx="260" cy="53" r="3.5" strokeWidth="1.5"/>
 
-          {/* Rotor superior — gira no sentido horário */}
-          <g>
-            <line x1="260" y1="126" x2="60"  y2="100" strokeWidth="2.5"/>
-            <line x1="260" y1="126" x2="460" y2="100" strokeWidth="2.5"/>
-            <line x1="260" y1="126" x2="60"  y2="152" strokeWidth="2.5"/>
-            <line x1="260" y1="126" x2="460" y2="152" strokeWidth="2.5"/>
-            <ellipse cx="60"  cy="100" rx="14" ry="5" strokeWidth="2"/>
-            <ellipse cx="460" cy="100" rx="14" ry="5" strokeWidth="2"/>
-            <ellipse cx="60"  cy="152" rx="14" ry="5" strokeWidth="2"/>
-            <ellipse cx="460" cy="152" rx="14" ry="5" strokeWidth="2"/>
-            <animateTransform attributeName="transform" type="rotate"
-              from="0 260 126" to="360 260 126" dur="1.4s" repeatCount="indefinite"/>
-          </g>
+          {/* ── Painel solar (topo, acima dos rotores) ── */}
+          <rect x="165" y="73" width="190" height="25" rx="3" strokeWidth="2.5"/>
+          {/* Grid do painel */}
+          <line x1="212" y1="73" x2="212" y2="98" strokeWidth="0.8"/>
+          <line x1="260" y1="73" x2="260" y2="98" strokeWidth="0.8"/>
+          <line x1="308" y1="73" x2="308" y2="98" strokeWidth="0.8"/>
+          <line x1="165" y1="85" x2="355" y2="85" strokeWidth="0.8"/>
 
-          {/* Rotor inferior — gira no sentido anti-horário */}
-          <g>
-            <line x1="260" y1="140" x2="75"  y2="160" strokeWidth="2"/>
-            <line x1="260" y1="140" x2="445" y2="160" strokeWidth="2"/>
-            <line x1="260" y1="140" x2="75"  y2="120" strokeWidth="2"/>
-            <line x1="260" y1="140" x2="445" y2="120" strokeWidth="2"/>
-            <animateTransform attributeName="transform" type="rotate"
-              from="0 260 140" to="-360 260 140" dur="1.1s" repeatCount="indefinite"/>
-          </g>
+          {/* ── Mastro central ── */}
+          <line x1="260" y1="98" x2="260" y2="240" strokeWidth="3"/>
+
+          {/* Detalhe swashplate / mecanismo central */}
+          <rect x="252" y="192" width="16" height="11" rx="2" strokeWidth="1.5"/>
+          <line x1="244" y1="197" x2="276" y2="197" strokeWidth="1"/>
+
+          {/* ── Hubs dos rotores ── */}
+          <circle cx="260" cy="148" r="9"  strokeWidth="2.5"/>
+          <circle cx="260" cy="166" r="7"  strokeWidth="2"/>
+
+          {/* ── Rotor superior — foreshortening cossénico ── */}
+          <line y1="148" y2="148" strokeWidth="2.5">
+            <animate attributeName="x1" values="60;119;260;401;460;401;260;119;60" dur="1.4s" repeatCount="indefinite" calcMode="linear"/>
+            <animate attributeName="x2" values="460;401;260;119;60;119;260;401;460" dur="1.4s" repeatCount="indefinite" calcMode="linear"/>
+          </line>
+          <line y1="148" y2="148" strokeWidth="2.5">
+            <animate attributeName="x1" values="260;401;460;401;260;119;60;119;260" dur="1.4s" repeatCount="indefinite" calcMode="linear"/>
+            <animate attributeName="x2" values="260;119;60;119;260;401;460;401;260" dur="1.4s" repeatCount="indefinite" calcMode="linear"/>
+          </line>
+
+          {/* ── Rotor inferior — contra-rotação ── */}
+          <line y1="166" y2="166" strokeWidth="2">
+            <animate attributeName="x1" values="260;140;90;140;260;380;430;380;260" dur="1.1s" repeatCount="indefinite" calcMode="linear"/>
+            <animate attributeName="x2" values="260;380;430;380;260;140;90;140;260" dur="1.1s" repeatCount="indefinite" calcMode="linear"/>
+          </line>
+          <line y1="166" y2="166" strokeWidth="2">
+            <animate attributeName="x1" values="90;140;260;380;430;380;260;140;90" dur="1.1s" repeatCount="indefinite" calcMode="linear"/>
+            <animate attributeName="x2" values="430;380;260;140;90;140;260;380;430" dur="1.1s" repeatCount="indefinite" calcMode="linear"/>
+          </line>
+
+          {/* ── Corpo (caixa eletrónica) ── */}
+          <rect x="204" y="240" width="112" height="68" rx="4" strokeWidth="3"/>
+          {/* Linha divisória horizontal no corpo */}
+          <line x1="204" y1="272" x2="316" y2="272" strokeWidth="1.5"/>
+          {/* Parafusos / detalhes de canto */}
+          <circle cx="212" cy="248" r="2.5" strokeWidth="1.2"/>
+          <circle cx="308" cy="248" r="2.5" strokeWidth="1.2"/>
+          <circle cx="212" cy="300" r="2.5" strokeWidth="1.2"/>
+          <circle cx="308" cy="300" r="2.5" strokeWidth="1.2"/>
+
+          {/* ── 4 Pernas individuais (sem barra de ligação) ── */}
+          {/* Par esquerdo (frente) */}
+          <line x1="214" y1="295" x2="128" y2="390" strokeWidth="2.5"/>
+          <line x1="222" y1="298" x2="138" y2="393" strokeWidth="2"/>
+          {/* Par direito (trás) */}
+          <line x1="306" y1="295" x2="392" y2="390" strokeWidth="2.5"/>
+          <line x1="298" y1="298" x2="382" y2="393" strokeWidth="2"/>
+
+          {/* Pés curvados nas extremidades das pernas */}
+          <line x1="116" y1="388" x2="142" y2="394" strokeWidth="2.5"/>
+          <line x1="126" y1="391" x2="152" y2="397" strokeWidth="2"/>
+          <line x1="378" y1="388" x2="404" y2="394" strokeWidth="2.5"/>
+          <line x1="368" y1="391" x2="394" y2="397" strokeWidth="2"/>
         </g>
       </svg>
       {/* ── Header ── */}

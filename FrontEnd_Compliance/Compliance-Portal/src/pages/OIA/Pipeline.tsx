@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { sbLoad, sbSaveAll } from '@/services/supabaseStore'
+import { sbLoad, sbSaveAll, sbDelete } from '@/services/supabaseStore'
 import { API_BASE } from '@/lib/api'
 import { Plus, Check, X, ChevronDown, AlertCircle } from 'lucide-react'
 import clsx from 'clsx'
@@ -309,7 +309,10 @@ export function Pipeline({ kind, companies, funds, onApprove }: Props) {
 
   function remove(id: string) {
     if (!confirm('Eliminar esta proposta?')) return
-    saveItems(items.filter(i => i.id !== id))
+    const item = items.find(i => i.id === id)
+    setItems(items.filter(i => i.id !== id))
+    persist(storageKey, items.filter(i => i.id !== id))
+    sbDelete(tableName, storageKey, id, item?.companyName)
   }
 
   const filtered = useMemo(() =>

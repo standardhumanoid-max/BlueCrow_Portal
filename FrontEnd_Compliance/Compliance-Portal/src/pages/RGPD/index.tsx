@@ -782,9 +782,10 @@ function IncidentesTab() {
 
   function deleteIncidente(id: string) {
     if (!confirm(`Eliminar incidente "${id}"?`)) return
+    const item = incidentes.find(x => x.id === id)
     const next = incidentes.filter(x => x.id !== id)
     setIncidentes(next)
-    sbDelete('rgpd_incidentes', 'rgpd_incidentes', id)
+    sbDelete('rgpd_incidentes', 'rgpd_incidentes', id, item?.descricao ?? id)
   }
 
   const SUB = ['Sumário','Registo de Incidentes','Avaliação de Risco','Avaliação Inicial']
@@ -1139,8 +1140,9 @@ export function RGPD() {
   }
   function deletePlanoItem(id: string) {
     if (!confirm('Eliminar este item do plano?')) return
+    const item = planoData.find(x => x.id === id)
     setPlanoData(planoData.filter(x => x.id !== id))
-    sbDelete('rgpd_plano', 'rgpd_plano', id)
+    sbDelete('rgpd_plano', 'rgpd_plano', id, item?.tarefa ?? id)
   }
   function openNewPlano() { setEditingPlano(null); setPlanoForm(emptyPlano); setPlanoModal(true) }
   function openEditPlano(item: PlanoItem) { setEditingPlano(item); setPlanoForm({ fase: item.fase, tarefa: item.tarefa, resp: item.resp, prazo: item.prazo, estado: item.estado }); setPlanoModal(true) }
@@ -1176,8 +1178,9 @@ export function RGPD() {
   }
   function deleteRetencaoItem(id: string) {
     if (!confirm('Eliminar este registo?')) return
+    const item = retencaoData.find(x => x.id === id)
     setRetencaoData(retencaoData.filter(x => x.id !== id))
-    sbDelete('rgpd_retencao', 'rgpd_retencao', id)
+    sbDelete('rgpd_retencao', 'rgpd_retencao', id, item?.tratamento ?? id)
   }
   function openNewRetencao() { setEditingRetencao(null); setRetencaoForm(emptyRetencao); setRetencaoModal(true) }
   function openEditRetencao(item: RetencaoItem) { setEditingRetencao(item); setRetencaoForm({ tratamento: item.tratamento, departamento: item.departamento, tipo_dados: item.tipo_dados, prazo_retencao: item.prazo_retencao, base_legal: item.base_legal, metodo_eliminacao: item.metodo_eliminacao }); setRetencaoModal(true) }

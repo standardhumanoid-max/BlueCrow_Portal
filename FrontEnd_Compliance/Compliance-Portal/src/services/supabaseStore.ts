@@ -3,8 +3,10 @@
  * Interface mantida igual para não quebrar o store existente.
  */
 
-import { API_BASE } from '@/lib/api'
+import { API_BASE, authFetch } from '@/lib/api'
+import { useUndoStore } from '@/store/useUndoStore'
 const API = `${API_BASE}/api/comp`
+const fetch = authFetch
 
 // Mapa: nome da tabela Supabase → nome da tabela local
 const TABLE_MAP: Record<string, string> = {
@@ -128,7 +130,7 @@ export async function sbSave<T extends { id: string }>(
   }
 }
 
-// ─── Substituição total da lista ──────────────────────────────────────────────
+// ─── Substituição total da lista (via upsert individual — evita bulk DELETE que polui history) ───
 export async function sbSaveAll<T extends { id: string }>(
   table: string,
   localKey: string,
@@ -137,15 +139,15 @@ export async function sbSaveAll<T extends { id: string }>(
   _saveLocal(localKey, items)
 
   try {
-    const rows = items.map(item => {
+    const lt = localTable(table)
+    await Promise.all(items.map(item => {
       const { id, ...rest } = item as Record<string, unknown>
-      return { id, data: rest }
-    })
-    await fetch(`${API}/${localTable(table)}/bulk`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rows }),
-    })
+      return fetch(`${API}/${lt}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, data: rest }),
+      })
+    }))
   } catch (err) {
     console.warn(`[store] Falha ao guardar lista em "${table}":`, err)
   }
@@ -156,12 +158,17 @@ export async function sbDelete<T extends { id: string }>(
   table: string,
   localKey: string,
   id: string,
+  label?: string,
 ): Promise<void> {
   const local = _loadLocal<T>(localKey)
   _saveLocal(localKey, local.filter(x => x.id !== id))
 
   try {
-    await fetch(`${API}/${localTable(table)}/${id}`, { method: 'DELETE' })
+    const res  = await fetch(`${API}/${localTable(table)}/${id}`, { method: 'DELETE' })
+    const json = await res.json().catch(() => ({}))
+    if (json.deleted && label) {
+      useUndoStore.getState().showUndo({ table: localTable(table), label, rowData: json.deleted })
+    }
   } catch (err) {
     console.warn(`[store] Falha ao eliminar em "${table}":`, err)
   }

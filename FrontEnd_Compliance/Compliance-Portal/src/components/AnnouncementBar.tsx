@@ -43,8 +43,8 @@ export function AnnouncementBar() {
 
   if (!message.trim() || dismissed) return null
 
-  // Duração proporcional ao comprimento da mensagem (mínimo 12s, ~0.12s por caracter)
-  const duration = Math.max(12, Math.round(message.length * 0.14))
+  // Duração proporcional ao comprimento da mensagem — lento o suficiente para ser lido
+  const duration = Math.max(28, Math.round(message.length * 0.26))
 
   return (
     <>

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { sbLoad, sbSaveAll } from '@/services/supabaseStore'
+import { sbLoad, sbSaveAll, sbDelete } from '@/services/supabaseStore'
 import { Plus, Trash2, X, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -321,8 +321,10 @@ export function Comparacao() {
 
   function deleteComp(id: string) {
     if (!confirm('Eliminar esta comparação?')) return
+    const comp = comps.find(c => c.id === id)
     const updated = comps.filter(c => c.id !== id)
-    persist(updated)
+    setComps(updated)
+    sbDelete('oia_comparacoes', COMP_KEY, id, comp?.name ?? id)
     if (activeId === id) setActiveId(updated[0]?.id ?? null)
   }
 

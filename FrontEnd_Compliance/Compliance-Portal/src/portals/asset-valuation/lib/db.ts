@@ -1,7 +1,7 @@
 import type { AppDatabase, Fund, FundData } from '../types/database'
 import { FUNDS } from '../types/database'
 
-import { API_BASE } from '@/lib/api'
+import { API_BASE, authFetch } from '@/lib/api'
 const API = `${API_BASE}/api/av/state`
 
 function emptyDb(): AppDatabase {
@@ -35,14 +35,14 @@ function ensureDbShape(data: unknown): AppDatabase {
 }
 
 export async function loadDb(): Promise<AppDatabase> {
-  const res = await fetch(API)
+  const res = await authFetch(API)
   if (!res.ok) throw new Error(`Erro ao carregar dados: ${res.status}`)
   const data = await res.json()
   return ensureDbShape(data)
 }
 
 export async function saveDb(db: AppDatabase, userEmail?: string): Promise<void> {
-  const res = await fetch(API, {
+  const res = await authFetch(API, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ payload: db, userEmail }),

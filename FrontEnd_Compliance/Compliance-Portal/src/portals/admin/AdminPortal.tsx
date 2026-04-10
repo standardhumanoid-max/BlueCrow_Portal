@@ -5,7 +5,7 @@ import { Auditoria }      from '@/pages/Auditoria'
 import { Ciberseguranca } from '@/pages/Ciberseguranca'
 import { ROLE_LABELS, ROLE_COLORS, type Role, type Portal } from '@/config/users'
 
-import { API_BASE } from '@/lib/api'
+import { API_BASE, authFetch } from '@/lib/api'
 const ADMIN_API    = `${API_BASE}/api/admin`
 const AUTH_API     = `${API_BASE}/api/auth`
 const SETTINGS_API = `${API_BASE}/api/settings`
@@ -146,7 +146,7 @@ function UtilizadoresAdmin() {
   async function disable2FA(u: DBUser) {
     if (!window.confirm(`Repor 2FA para ${u.name}?\nO utilizador terá de configurar novamente no próximo login.`)) return
     try {
-      await fetch(`${AUTH_API}/2fa/${u.id}`, { method: 'DELETE' })
+      await authFetch(`${AUTH_API}/2fa/${u.id}`, { method: 'DELETE' })
       await loadUsers()
     } catch { /* noop */ }
   }
@@ -154,7 +154,7 @@ function UtilizadoresAdmin() {
   async function loadUsers() {
     setLoading(true)
     try {
-      const res = await fetch(`${ADMIN_API}/users`)
+      const res = await authFetch(`${ADMIN_API}/users`)
       if (!res.ok) throw new Error(await res.text())
       const rows: DBUser[] = await res.json()
       setUsers(rows.map(r => ({ ...r, portals: r.portals ?? [] })))
@@ -197,7 +197,7 @@ function UtilizadoresAdmin() {
         portals:  form.portals,
         ...(form.password ? { password: form.password } : {}),
       }
-      const res = await fetch(`${ADMIN_API}/users`, {
+      const res = await authFetch(`${ADMIN_API}/users`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
@@ -216,7 +216,7 @@ function UtilizadoresAdmin() {
     if (!window.confirm('Eliminar utilizador? Esta acção é irreversível.')) return
     setDeleting(id)
     try {
-      await fetch(`${ADMIN_API}/users/${id}`, { method: 'DELETE' })
+      await authFetch(`${ADMIN_API}/users/${id}`, { method: 'DELETE' })
       await loadUsers()
     } finally {
       setDeleting(null)
@@ -516,7 +516,7 @@ function ComunicadosAdmin() {
   const [status,  setStatus]  = useState<'idle' | 'ok' | 'error'>('idle')
 
   useEffect(() => {
-    fetch(`${SETTINGS_API}/announcement`)
+    authFetch(`${SETTINGS_API}/announcement`)
       .then(r => r.json())
       .then(d => { setMessage(d.value ?? ''); setSaved(d.value ?? '') })
       .catch(() => {})
@@ -526,7 +526,7 @@ function ComunicadosAdmin() {
     setSaving(true)
     setStatus('idle')
     try {
-      const res = await fetch(`${SETTINGS_API}/announcement`, {
+      const res = await authFetch(`${SETTINGS_API}/announcement`, {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ value: message }),

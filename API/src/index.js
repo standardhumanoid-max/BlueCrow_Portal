@@ -1,9 +1,11 @@
 require('dotenv').config()
-const express  = require('express')
-const cors     = require('cors')
-const path     = require('path')
+const express    = require('express')
+const cors       = require('cors')
+const path       = require('path')
+const rateLimit  = require('express-rate-limit')
 const { avPool, compPool } = require('./db')
 const { migrate } = require('./migrate')
+const { requireAuth } = require('./middleware/auth')
 
 const DIST = path.join(__dirname, '../../FrontEnd_Compliance/Compliance-Portal/dist')
 
@@ -17,27 +19,48 @@ const cmvmRouter       = require('./routes/cmvm')
 const adminRouter      = require('./routes/admin')
 const authRouter       = require('./routes/auth')
 const settingsRouter   = require('./routes/settings')
+const historyRouter    = require('./routes/history')
 
 const app  = express()
 const PORT = process.env.PORT || 3001
 
+// ── CORS — apenas origens locais/rede interna ──────────────────────────────────
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:5173',
+]
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permitir requests sem origin (ex: ferramentas internas, curl)
+    if (!origin) return callback(null, true)
+    // Permitir qualquer IP da rede local (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    const isLAN = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)
+    if (allowedOrigins.includes(origin) || isLAN) return callback(null, true)
+    callback(new Error('CORS: origem não permitida'))
+  },
+  credentials: true,
+}))
+
+app.use(express.json({ limit: '10mb' }))
+
+// ── Rate limiting global: 200 req/min por IP ──────────────────────────────────
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/api/health',
+  message: { error: 'Demasiados pedidos. Tente novamente em breve.' },
+}))
+
 // ── Middleware ─────────────────────────────────────────────────────────────────
-app.use(cors({ origin: true }))  // aceita qualquer origem (rede interna)
-app.use(express.json())
 
-// ── Routes ─────────────────────────────────────────────────────────────────────
-app.use('/api/funds',      fundsRouter)
-app.use('/api/companies',  companiesRouter)
-app.use('/api/pipeline',   pipelineRouter)
-app.use('/api/compliance', complianceRouter)
-app.use('/api/av/state',   appStateRouter)
-app.use('/api/comp',       compStoreRouter)
-app.use('/api/cmvm',       cmvmRouter)
-app.use('/api/admin',      adminRouter)
-app.use('/api/auth',       authRouter)
-app.use('/api/settings',   settingsRouter)
+// ── Rotas públicas (sem autenticação) ─────────────────────────────────────────
+app.use('/api/auth',     authRouter)    // login, 2fa
 
-// ── Health check ───────────────────────────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
   try {
     await avPool.query('SELECT 1')
@@ -48,7 +71,19 @@ app.get('/api/health', async (req, res) => {
   }
 })
 
-// ── Frontend estático (serve o build do React na raiz) ─────────────────────────
+// ── Rotas protegidas (requerem JWT válido) ─────────────────────────────────────
+app.use('/api/funds',      requireAuth, fundsRouter)
+app.use('/api/companies',  requireAuth, companiesRouter)
+app.use('/api/pipeline',   requireAuth, pipelineRouter)
+app.use('/api/compliance', requireAuth, complianceRouter)
+app.use('/api/av/state',   requireAuth, appStateRouter)
+app.use('/api/comp',       requireAuth, compStoreRouter)
+app.use('/api/cmvm',       requireAuth, cmvmRouter)
+app.use('/api/admin',      adminRouter)   // auth+admin já dentro do router
+app.use('/api/settings',   requireAuth, settingsRouter)
+app.use('/api/history',    requireAuth, historyRouter)
+
+// ── Frontend estático ──────────────────────────────────────────────────────────
 app.use(express.static(DIST))
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next()

@@ -10,29 +10,26 @@ export function Login({ onBack }: { onBack?: () => void }) {
   const [error,    setError]    = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
 
-  // Estado de bloqueio reactivo (actualiza a contagem decrescente)
   const [locked,     setLocked]     = useState(false)
   const [remaining,  setRemaining]  = useState(0)
   const [attempts,   setAttempts]   = useState(0)
 
-  const refreshLockout = useCallback(() => {
-    const info = lockoutInfo(email.trim())
+  const refreshLockout = useCallback(async () => {
+    const info = await lockoutInfo(email.trim())
     setLocked(info.locked)
     setRemaining(info.remaining)
     setAttempts(info.attempts)
   }, [email, lockoutInfo])
 
-  // Actualiza quando o email muda
-  useEffect(() => { refreshLockout() }, [refreshLockout])
+  useEffect(() => { void refreshLockout() }, [refreshLockout])
 
-  // Contagem decrescente enquanto bloqueado
   useEffect(() => {
     if (!locked) return
-    const id = setInterval(() => {
-      const info = lockoutInfo(email.trim())
+    const id = setInterval(async () => {
+      const info = await lockoutInfo(email.trim())
       setRemaining(info.remaining)
       if (!info.locked) { setLocked(false); setError(null) }
-    }, 1000)
+    }, 5000)
     return () => clearInterval(id)
   }, [locked, email, lockoutInfo])
 
@@ -50,7 +47,7 @@ export function Login({ onBack }: { onBack?: () => void }) {
     const result = await login(email.trim(), password)
     if (result.error) {
       setError(result.error)
-      refreshLockout()
+      void refreshLockout()
     }
     setLoading(false)
   }
@@ -68,7 +65,6 @@ export function Login({ onBack }: { onBack?: () => void }) {
           </button>
         )}
 
-        {/* Logo card */}
         <div className="bg-[#0f1f3d] rounded-2xl px-8 py-6 mb-6 text-center shadow-xl">
           <div className="w-16 h-16 mx-auto mb-4">
             <img src="/simbolo.ico" alt="BlueCrow" className="w-16 h-16 object-contain" />
@@ -78,14 +74,12 @@ export function Login({ onBack }: { onBack?: () => void }) {
           <div className="text-blue-400 text-[10px] mt-1 uppercase tracking-widest">Portal Interno</div>
         </div>
 
-        {/* Form card */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-8 py-7">
           <div className="flex items-center gap-2 mb-6">
             <Shield className="w-4 h-4 text-blue-600" />
             <h1 className="text-[14px] font-semibold text-gray-900">Acesso Restrito</h1>
           </div>
 
-          {/* Bloqueio activo */}
           {locked && (
             <div className="mb-5 bg-red-50 border border-red-200 rounded-xl px-4 py-4 text-center">
               <Lock className="w-6 h-6 text-red-500 mx-auto mb-2" />
@@ -98,9 +92,7 @@ export function Login({ onBack }: { onBack?: () => void }) {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                Email
-              </label>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Email</label>
               <input
                 type="email"
                 className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400"
@@ -114,9 +106,7 @@ export function Login({ onBack }: { onBack?: () => void }) {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                Password
-              </label>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Password</label>
               <div className="relative">
                 <input
                   className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400"
@@ -127,19 +117,13 @@ export function Login({ onBack }: { onBack?: () => void }) {
                   autoComplete="current-password"
                   disabled={locked}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  tabIndex={-1}
-                  disabled={locked}
-                >
+                <button type="button" onClick={() => setShowPw(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" tabIndex={-1} disabled={locked}>
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Aviso de tentativas restantes */}
             {showAttemptsWarning && (
               <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3.5 py-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
@@ -149,7 +133,6 @@ export function Login({ onBack }: { onBack?: () => void }) {
               </div>
             )}
 
-            {/* Erro genérico (sem bloqueio) */}
             {error && !locked && (
               <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3.5 py-2.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
@@ -157,17 +140,11 @@ export function Login({ onBack }: { onBack?: () => void }) {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading || !email || !password || locked}
-              className="w-full bg-[#1e3a5f] hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 mt-2"
-            >
+            <button type="submit" disabled={loading || !email || !password || locked}
+              className="w-full bg-[#1e3a5f] hover:bg-[#162d4a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 mt-2">
               {loading
                 ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />A autenticar…</>
-                : locked
-                ? <><Lock className="w-4 h-4" />Bloqueado</>
-                : 'Entrar'
-              }
+                : locked ? <><Lock className="w-4 h-4" />Bloqueado</> : 'Entrar'}
             </button>
           </form>
         </div>

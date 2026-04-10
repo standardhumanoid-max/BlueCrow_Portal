@@ -145,8 +145,8 @@ router.delete('/:table/:id', async (req, res) => {
   const table = req.params.table
   if (!ALLOWED.has(table)) return res.status(400).json({ error: 'Tabela inválida' })
   try {
-    await compPool.query(`DELETE FROM ${table} WHERE id=$1`, [req.params.id])
-    res.json({ ok: true })
+    const { rows } = await compPool.query(`DELETE FROM ${table} WHERE id=$1 RETURNING *`, [req.params.id])
+    res.json({ ok: true, deleted: rows[0] ?? null })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

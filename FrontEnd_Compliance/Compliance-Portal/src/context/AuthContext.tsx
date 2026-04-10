@@ -1,60 +1,47 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react'
 import { ROLE_PERMISSIONS, type AppUser, type Permission } from '@/config/users'
 import { useStore } from '@/store/useStore'
+import { API_BASE } from '@/lib/api'
 import { Clock } from 'lucide-react'
 
-const API              = `${API_BASE}/api/comp/portal_users`
-const SESSION_KEY      = 'compliance_user'
-const LOCKOUT_KEY      = 'compliance_lockout'   // { email, count, until }
-const MAX_ATTEMPTS     = 5
-const LOCKOUT_MS       = 15 * 60 * 1000         // 15 minutos
-const INACTIVITY_MS    = 30 * 60 * 1000         // 30 minutos
-const WARNING_MS       =  2 * 60 * 1000         //  aviso 2 min antes do logout
+const SESSION_KEY   = 'compliance_session'   // guarda { token, user } — sem password
+const INACTIVITY_MS = 30 * 60 * 1000
+const WARNING_MS    =  2 * 60 * 1000
 
-interface LockoutEntry {
-  email: string
-  count: number
-  until: number   // timestamp; 0 = não bloqueado ainda
+const AUTH_API        = `${API_BASE}/api/auth`
+const AUTH_API_SETUP  = `${AUTH_API}/2fa/setup`
+const AUTH_API_ENABLE = `${AUTH_API}/2fa/enable`
+const AUTH_API_VERIFY = `${AUTH_API}/2fa/verify`
+
+// ─── Token helpers ─────────────────────────────────────────────────────────────
+function saveSession(token: string, user: AppUser) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, user }))
 }
-
-function getLockout(email: string): LockoutEntry {
+function loadSession(): { token: string; user: AppUser } | null {
   try {
-    const raw = localStorage.getItem(LOCKOUT_KEY)
-    if (!raw) return { email, count: 0, until: 0 }
-    const parsed: LockoutEntry = JSON.parse(raw)
-    if (parsed.email !== email) return { email, count: 0, until: 0 }
-    return parsed
-  } catch {
-    return { email, count: 0, until: 0 }
-  }
+    const s = sessionStorage.getItem(SESSION_KEY)
+    return s ? JSON.parse(s) : null
+  } catch { return null }
+}
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY)
 }
 
-function saveLockout(entry: LockoutEntry) {
-  localStorage.setItem(LOCKOUT_KEY, JSON.stringify(entry))
+// Token exposto para uso nas chamadas API
+export function getAuthToken(): string | null {
+  const s = loadSession()
+  return s?.token ?? null
 }
-
-function clearLockout(email: string) {
-  const raw = localStorage.getItem(LOCKOUT_KEY)
-  if (!raw) return
-  try {
-    const parsed: LockoutEntry = JSON.parse(raw)
-    if (parsed.email === email) localStorage.removeItem(LOCKOUT_KEY)
-  } catch { /* noop */ }
-}
-
-import { API_BASE } from '@/lib/api'
-const AUTH_API_SETUP  = `${API_BASE}/api/auth/2fa/setup`
-const AUTH_API_ENABLE = `${API_BASE}/api/auth/2fa/enable`
-const AUTH_API_VERIFY = `${API_BASE}/api/auth/2fa/verify`
 
 export interface LoginResult {
   error:        string | null
-  requires2fa?: boolean   // 2FA configurado — pede código
-  needsSetup?:  boolean   // 2FA não configurado — pede QR setup
+  requires2fa?: boolean
+  needsSetup?:  boolean
   userId?:      string
+  locked?:      boolean
+  until?:       number
 }
 
-// ─── Tipos expostos ───────────────────────────────────────────────────────────
 interface AuthState {
   user:            AppUser | null
   authLoading:     boolean
@@ -66,33 +53,21 @@ interface AuthState {
   can:             (permission: Permission) => boolean
   canPortal:       (portal: string) => boolean
   isAdmin:         boolean
-  lockoutInfo:     (email: string) => { locked: boolean; remaining: number; attempts: number }
+  lockoutInfo:     (email: string) => Promise<{ locked: boolean; remaining: number; attempts: number }>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const stored = sessionStorage.getItem(SESSION_KEY)
-  const [user, setUser]           = useState<AppUser | null>(stored ? JSON.parse(stored) : null)
-  const [dbUsers, setDbUsers]     = useState<(AppUser & { password: string })[]>([])
-  const [authLoading, setAuthLoading] = useState(true)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const warnRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const resetRef = useRef<(() => void) | null>(null)
+  const session = loadSession()
+  const [user, setUser]               = useState<AppUser | null>(session?.user ?? null)
+  const [authLoading, setAuthLoading] = useState(false)
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const warnRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resetRef  = useRef<(() => void) | null>(null)
   const [showWarning, setShowWarning] = useState(false)
 
-  // ── Carregar utilizadores da base de dados ─────────────────────────────────
-  useEffect(() => {
-    fetch(API)
-      .then(r => r.json())
-      .then((rows: (AppUser & { password: string })[]) => {
-        setDbUsers(rows)
-      })
-      .catch(() => console.warn('[auth] Não foi possível carregar utilizadores da BD'))
-      .finally(() => setAuthLoading(false))
-  }, [])
-
-  // ── Inatividade — logout automático após 30 min + aviso 2 min antes ───────
+  // ── Inatividade — logout automático após 30 min ────────────────────────────
   useEffect(() => {
     if (!user) { setShowWarning(false); return }
 
@@ -110,12 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           entity_label: `${user!.name} (${user!.email}) — logout automático por inatividade`,
         })
         setUser(null)
-        sessionStorage.removeItem(SESSION_KEY)
+        clearSession()
       }, INACTIVITY_MS)
     }
 
     resetRef.current = resetTimers
-
     const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'] as const
     events.forEach(e => window.addEventListener(e, resetTimers, { passive: true }))
     resetTimers()
@@ -128,78 +102,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
-  /** Devolve info de bloqueio para mostrar na UI de login */
-  function lockoutInfo(email: string) {
-    const entry = getLockout(email)
-    const now   = Date.now()
-    const locked    = entry.until > now
-    const remaining = locked ? Math.ceil((entry.until - now) / 1000) : 0
-    return { locked, remaining, attempts: entry.count }
+  // ── Lockout: consulta o servidor ──────────────────────────────────────────
+  async function lockoutInfo(email: string) {
+    try {
+      const res  = await fetch(`${AUTH_API}/lockout?email=${encodeURIComponent(email)}`)
+      const data = await res.json()
+      const locked    = data.locked && data.until > Date.now()
+      const remaining = locked ? Math.ceil((data.until - Date.now()) / 1000) : 0
+      return { locked, remaining, attempts: data.count ?? 0 }
+    } catch {
+      return { locked: false, remaining: 0, attempts: 0 }
+    }
   }
 
+  // ── Login: credenciais validadas no servidor ──────────────────────────────
   async function login(email: string, password: string): Promise<LoginResult> {
-    const now   = Date.now()
-    const entry = getLockout(email)
-
-    // ── Verificar bloqueio activo ──────────────────────────────────────────
-    if (entry.until > now) {
-      const mins = Math.ceil((entry.until - now) / 60000)
-      return { error: `Conta bloqueada por excesso de tentativas. Tente novamente em ${mins} min.` }
-    }
-
-    // ── Validar credenciais contra a base de dados ─────────────────────────
-    const found = dbUsers.find(u => u.email === email && u.password === password && u.active)
-
-    if (!found) {
-      const newCount = entry.count + 1
-      const until    = newCount >= MAX_ATTEMPTS ? now + LOCKOUT_MS : 0
-      saveLockout({ email, count: newCount, until })
-
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: 'unknown', name: email }))
-      useStore.getState().addAuditLog({
-        action: 'LOGIN_FAILED',
-        entity: 'Sessão',
-        entity_label: `Tentativa falhada (${newCount}/${MAX_ATTEMPTS}) — ${email}`,
+    try {
+      const res  = await fetch(`${AUTH_API}/login`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email, password }),
       })
-      sessionStorage.removeItem(SESSION_KEY)
+      const data = await res.json()
 
-      if (newCount >= MAX_ATTEMPTS) {
-        return { error: `Conta bloqueada após ${MAX_ATTEMPTS} tentativas falhadas. Tente novamente em 15 minutos.` }
+      if (res.status === 429) {
+        useStore.getState().addAuditLog({
+          action: 'LOGIN_FAILED',
+          entity: 'Sessão',
+          entity_label: `Conta bloqueada — ${email}`,
+        })
+        return { error: data.error, locked: true, until: data.until }
       }
 
-      const restantes = MAX_ATTEMPTS - newCount
-      return { error: `Credenciais incorretas. Verifique o email e a password. (${restantes} tentativa${restantes === 1 ? '' : 's'} restante${restantes === 1 ? '' : 's'})` }
-    }
+      if (!res.ok) {
+        useStore.getState().addAuditLog({
+          action: 'LOGIN_FAILED',
+          entity: 'Sessão',
+          entity_label: `Tentativa falhada — ${email}`,
+        })
+        return { error: data.error ?? 'Credenciais incorretas.' }
+      }
 
-    // ── 2FA: sempre obrigatório após credenciais válidas ──────────────────
-    const u2fa = found as AppUser & { password: string; totp_enabled?: boolean; totp_secret?: string }
-    if (!u2fa.totp_enabled) {
-      // Sem 2FA configurado — utilizador precisa de configurar agora
-      return { error: null, needsSetup: true, userId: found.id }
+      // Credenciais válidas — aguarda 2FA
+      return { error: null, ...data }
+    } catch {
+      return { error: 'Erro de ligação ao servidor.' }
     }
-    // 2FA activo — pede código
-    return { error: null, requires2fa: true, userId: found.id }
   }
 
-  function completeLogin(appUser: AppUser, email: string) {
-    clearLockout(email)
+  function completeLogin(appUser: AppUser, token: string, email: string) {
     setUser(appUser)
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(appUser))
+    saveSession(token, appUser)
     useStore.getState().addAuditLog({
       action: 'LOGIN',
       entity: 'Sessão',
-      entity_label: `${appUser.name} (${appUser.email})`,
+      entity_label: `${appUser.name} (${email})`,
     })
   }
 
-  function findUser(userId: string) {
-    return dbUsers.find(u => u.id === userId) ?? null
-  }
-
-  /** Gera QR code de setup (chamado no 1.º login) */
   async function getSetup2fa(userId: string): Promise<{ qr: string; secret: string } | string> {
     try {
-      const res = await fetch(`${AUTH_API_SETUP}/${userId}`)
+      const token = getAuthToken()
+      const res = await fetch(`${AUTH_API_SETUP}/${userId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!res.ok) { const d = await res.json(); return d.error ?? 'Erro ao gerar QR code' }
       return await res.json()
     } catch {
@@ -207,7 +173,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  /** Confirma código após setup — ativa 2FA e completa o login */
   async function confirmSetup2fa(userId: string, token: string): Promise<string | null> {
     try {
       const res = await fetch(AUTH_API_ENABLE, {
@@ -216,17 +181,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body:    JSON.stringify({ userId, token }),
       })
       if (!res.ok) { const d = await res.json(); return d.error ?? 'Código inválido' }
-      const found = findUser(userId)
-      if (!found) return 'Utilizador não encontrado'
-      const { password: _pw, ...appUser } = found
-      completeLogin(appUser as AppUser, appUser.email)
+
+      // Obter JWT após 2FA confirmado
+      const tokenRes = await fetch(`${AUTH_API}/token`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId }),
+      })
+      if (!tokenRes.ok) return 'Erro ao obter sessão'
+      const { token: jwt, user: appUser } = await tokenRes.json()
+      completeLogin(appUser as AppUser, jwt, appUser.email)
       return null
     } catch {
       return 'Erro de ligação ao servidor'
     }
   }
 
-  /** Verifica código TOTP no login normal */
   async function verify2fa(userId: string, token: string): Promise<string | null> {
     try {
       const res = await fetch(AUTH_API_VERIFY, {
@@ -235,10 +205,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body:    JSON.stringify({ userId, token }),
       })
       if (!res.ok) { const d = await res.json(); return d.error ?? 'Código inválido' }
-      const found = findUser(userId)
-      if (!found) return 'Utilizador não encontrado'
-      const { password: _pw, ...appUser } = found
-      completeLogin(appUser as AppUser, appUser.email)
+
+      // Obter JWT após 2FA verificado
+      const tokenRes = await fetch(`${AUTH_API}/token`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId }),
+      })
+      if (!tokenRes.ok) return 'Erro ao obter sessão'
+      const { token: jwt, user: appUser } = await tokenRes.json()
+      completeLogin(appUser as AppUser, jwt, appUser.email)
       return null
     } catch {
       return 'Erro de ligação ao servidor'
@@ -254,7 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
     }
     setUser(null)
-    sessionStorage.removeItem(SESSION_KEY)
+    clearSession()
   }
 
   function can(permission: Permission): boolean {

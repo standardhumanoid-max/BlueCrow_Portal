@@ -25,6 +25,7 @@ import { Fundos }           from '@/pages/SCR'
 import { Legislacao }        from '@/pages/Legislacao'
 import { SecurityAlertToast } from '@/components/SecurityAlertToast'
 import { AnnouncementBar }    from '@/components/AnnouncementBar'
+import { UndoToast }          from '@/components/UndoToast'
 
 // ── Authenticated shell ────────────────────────────────────────────────────────
 function AppShell({ onBackToHub }: { onBackToHub: () => void }) {
@@ -32,7 +33,16 @@ function AppShell({ onBackToHub }: { onBackToHub: () => void }) {
   const { user } = useAuth()
 
   useEffect(() => {
-    loadAll()
+    // Só carrega dados se houver sessão com token válido
+    const session = sessionStorage.getItem('compliance_session')
+    const token = session ? JSON.parse(session)?.token : null
+    if (token) {
+      loadAll()
+    } else {
+      // Sessão antiga sem JWT — forçar logout para login novo
+      sessionStorage.removeItem('compliance_session')
+      onBackToHub()
+    }
   }, [])
 
   function renderPage() {
@@ -80,6 +90,7 @@ function AppShell({ onBackToHub }: { onBackToHub: () => void }) {
         </main>
       </div>
       <SecurityAlertToast />
+      <UndoToast />
     </div>
   )
 }
