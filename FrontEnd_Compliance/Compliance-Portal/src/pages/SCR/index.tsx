@@ -3,8 +3,11 @@ import { sbLoad, sbSaveAll } from '@/services/supabaseStore'
 import {
   ChevronDown, ChevronRight, Search, TrendingUp, Layers, BarChart3, Briefcase,
   Eye, Trash2, File, X, Upload, Plus, Pencil, Check,
+  MessageSquare, Send, Key,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '@/context/AuthContext'
+import { authFetch, API_BASE } from '@/lib/api'
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Types
@@ -239,55 +242,199 @@ function useObjectUrl(dataUrl: string): string {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// File Preview Modal
+// File Preview Modal (with optional AI chat for DIF / Documento Único / Prospecto)
 // ══════════════════════════════════════════════════════════════════════════════
-function FilePreviewModal({ doc, onClose }: { doc: FundDoc; onClose: () => void }) {
-  const isPDF    = doc.fileType === 'application/pdf' || doc.fileName.toLowerCase().endsWith('.pdf')
-  const isImage  = doc.fileType.startsWith('image/')
-  const blobUrl  = useObjectUrl(doc.fileData)
+const CHAT_CATEGORIES: DocCategory[] = ['DIF', 'Documento Único', 'Prospecto']
+
+interface ChatMsg { role: 'user' | 'assistant'; content: string }
+
+function FilePreviewModal({ doc, fundName, onClose }: { doc: FundDoc; fundName: string; onClose: () => void }) {
+  const { hasApiKey } = useAuth()
+  const isPDF   = doc.fileType === 'application/pdf' || doc.fileName.toLowerCase().endsWith('.pdf')
+  const isImage = doc.fileType.startsWith('image/')
+  const blobUrl = useObjectUrl(doc.fileData)
+  const canChat = isPDF && CHAT_CATEGORIES.includes(doc.category as DocCategory)
+
+  const [chatOpen,    setChatOpen]    = useState(false)
+  const [messages,    setMessages]    = useState<ChatMsg[]>([])
+  const [input,       setInput]       = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatError,   setChatError]   = useState<string | null>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, chatLoading])
+
+  async function sendMessage(e: React.FormEvent) {
+    e.preventDefault()
+    if (!input.trim() || chatLoading) return
+    const userMsg: ChatMsg = { role: 'user', content: input.trim() }
+    const next = [...messages, userMsg]
+    setMessages(next)
+    setInput('')
+    setChatLoading(true)
+    setChatError(null)
+    try {
+      // Always attach the PDF so Claude keeps document context across turns
+      const b64 = doc.fileData.includes(',') ? doc.fileData.split(',')[1] : doc.fileData
+      const res = await authFetch(`${API_BASE}/api/scr/chat`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ messages: next, fundName, pdfBase64: b64, pdfMimeType: 'application/pdf' }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setChatError(data.error ?? 'Erro ao contactar assistente'); return }
+      setMessages(m => [...m, { role: 'assistant', content: data.response }])
+    } catch {
+      setChatError('Erro de ligação ao servidor')
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
+  function closeChat() { setChatOpen(false); setMessages([]); setChatError(null) }
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-2xl flex flex-col"
-        style={{ width: '88vw', height: '92vh' }} onClick={e => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <File size={16} className="text-gray-400 flex-shrink-0"/>
-            <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-gray-900 truncate">{doc.fileName}</p>
-              <p className="text-[11px] text-gray-400">{doc.category} · {doc.uploadedAt}</p>
+      <div
+        className="bg-white rounded-2xl border border-gray-200 shadow-2xl flex overflow-hidden"
+        style={{ width: chatOpen ? '94vw' : '88vw', height: '92vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* ── Document preview pane ── */}
+        <div className={clsx('flex flex-col', chatOpen ? 'flex-1 min-w-0' : 'w-full')}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <File size={16} className="text-gray-400 flex-shrink-0"/>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-gray-900 truncate">{doc.fileName}</p>
+                <p className="text-[11px] text-gray-400">{doc.category} · {fundName} · {doc.uploadedAt}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-            <a href={blobUrl} download={doc.fileName} onClick={e => e.stopPropagation()}
-              className="text-[11px] text-blue-600 hover:text-blue-800 px-3 py-1.5 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors">
-              Download
-            </a>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1">
-              <X size={18}/>
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden rounded-b-2xl">
-          {isPDF ? (
-            <iframe src={blobUrl} className="w-full h-full border-0" title={doc.fileName}/>
-          ) : isImage ? (
-            <div className="w-full h-full flex items-center justify-center bg-gray-50 overflow-auto p-6">
-              <img src={blobUrl} alt={doc.fileName} className="max-w-full max-h-full object-contain rounded-lg shadow"/>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-3">
-              <File size={48} className="text-gray-200"/>
-              <p className="text-[13px] text-gray-500">Pré-visualização não disponível para este formato</p>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+              {canChat && (
+                <button onClick={() => chatOpen ? closeChat() : setChatOpen(true)}
+                  title={hasApiKey ? 'Assistente IA' : 'Configure a chave API nas definições do hub'}
+                  className={clsx(
+                    'flex items-center gap-1.5 text-[11px] px-3 py-1.5 border rounded-lg transition-colors',
+                    chatOpen
+                      ? 'text-indigo-700 bg-indigo-50 border-indigo-200'
+                      : 'text-gray-600 hover:text-indigo-700 border-gray-200 hover:border-indigo-200 hover:bg-indigo-50'
+                  )}>
+                  <MessageSquare size={12}/>
+                  {chatOpen ? 'Fechar chat' : 'Assistente IA'}
+                </button>
+              )}
               <a href={blobUrl} download={doc.fileName} onClick={e => e.stopPropagation()}
-                className="text-[12px] text-blue-600 hover:text-blue-800 underline">Fazer download</a>
+                className="text-[11px] text-blue-600 hover:text-blue-800 px-3 py-1.5 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors">
+                Download
+              </a>
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1">
+                <X size={18}/>
+              </button>
             </div>
-          )}
+          </div>
+          {/* Content */}
+          <div className="flex-1 overflow-hidden">
+            {isPDF ? (
+              <iframe src={blobUrl} className="w-full h-full border-0" title={doc.fileName}/>
+            ) : isImage ? (
+              <div className="w-full h-full flex items-center justify-center bg-gray-50 overflow-auto p-6">
+                <img src={blobUrl} alt={doc.fileName} className="max-w-full max-h-full object-contain rounded-lg shadow"/>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <File size={48} className="text-gray-200"/>
+                <p className="text-[13px] text-gray-500">Pré-visualização não disponível para este formato</p>
+                <a href={blobUrl} download={doc.fileName} onClick={e => e.stopPropagation()}
+                  className="text-[12px] text-blue-600 hover:text-blue-800 underline">Fazer download</a>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* ── Chat pane ── */}
+        {chatOpen && (
+          <div className="w-80 flex-shrink-0 flex flex-col border-l border-gray-100">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 flex-shrink-0">
+              <div>
+                <p className="text-[12px] font-semibold text-gray-900">Assistente IA</p>
+                <p className="text-[10px] text-gray-400">{doc.category} · {fundName}</p>
+              </div>
+              <button onClick={closeChat} className="text-gray-400 hover:text-gray-600">
+                <X size={14}/>
+              </button>
+            </div>
+
+            {!hasApiKey ? (
+              <div className="flex-1 flex items-center justify-center p-6 text-center">
+                <div>
+                  <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-3">
+                    <Key size={16} className="text-indigo-400"/>
+                  </div>
+                  <p className="text-[12px] font-semibold text-gray-700 mb-1.5">Chave API não configurada</p>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">Configure a sua chave Anthropic nas definições do perfil (ícone no hub).</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-gray-50/30">
+                  {messages.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+                      <MessageSquare size={24} className="text-gray-200 mb-2"/>
+                      <p className="text-[11px] text-gray-400">Faça uma pergunta sobre este documento.</p>
+                    </div>
+                  )}
+                  {messages.map((msg, i) => (
+                    <div key={i} className={clsx('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                      <div className={clsx(
+                        'max-w-[88%] rounded-2xl px-3 py-2 text-[12px] leading-relaxed whitespace-pre-wrap',
+                        msg.role === 'user'
+                          ? 'bg-indigo-600 text-white rounded-br-sm'
+                          : 'bg-white border border-gray-100 text-gray-800 rounded-bl-sm shadow-sm',
+                      )}>
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-sm px-3 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:-0.3s]"/>
+                          <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:-0.15s]"/>
+                          <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce"/>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {chatError && (
+                    <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-[11px] text-red-600 leading-relaxed">
+                      {chatError}
+                    </div>
+                  )}
+                  <div ref={bottomRef}/>
+                </div>
+                <form onSubmit={sendMessage} className="p-3 border-t border-gray-100 bg-white flex gap-2 flex-shrink-0">
+                  <input
+                    className="flex-1 text-[12px] border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+                    placeholder="Faça uma pergunta…"
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    disabled={chatLoading}
+                  />
+                  <button type="submit"
+                    disabled={!input.trim() || chatLoading}
+                    className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-xl transition-colors">
+                    <Send size={12}/>
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -569,7 +716,7 @@ interface DocHandlers {
   docs: FundDoc[]
   onAdd: (fundId: string, cat: DocCategory, name: string, data: string, type: string) => void
   onDelete: (id: string) => void
-  onPreview: (doc: FundDoc) => void
+  onPreview: (doc: FundDoc, fundName: string) => void
 }
 interface InfoHandlers {
   info: FundInfo | undefined
@@ -693,10 +840,10 @@ function FundRow({ fund, seg, docs, onAdd, onDelete, onPreview, info, onSaveInfo
                               <File size={9} className="text-gray-400 flex-shrink-0"/>
                               <span className="text-[10px] text-gray-600 flex-1 truncate cursor-pointer hover:text-blue-600"
                                 title={doc.fileName}
-                                onClick={e => { e.stopPropagation(); onPreview(doc) }}>
+                                onClick={e => { e.stopPropagation(); onPreview(doc, fund.name) }}>
                                 {doc.fileName}
                               </span>
-                              <button onClick={e => { e.stopPropagation(); onPreview(doc) }}
+                              <button onClick={e => { e.stopPropagation(); onPreview(doc, fund.name) }}
                                 className="text-gray-400 hover:text-blue-600 flex-shrink-0"
                                 title="Pré-visualizar">
                                 <Eye size={11}/>
@@ -825,7 +972,13 @@ export function Fundos() {
       setInfos([...data, ...SEED_INFOS.filter(s => !savedIds.has(s.fundId))])
     })
   }, [])
-  const [previewDoc, setPreviewDoc] = useState<FundDoc | null>(null)
+  const [previewDoc,      setPreviewDoc]      = useState<FundDoc | null>(null)
+  const [previewFundName, setPreviewFundName] = useState('')
+
+  function openPreview(doc: FundDoc, fundName: string) {
+    setPreviewDoc(doc)
+    setPreviewFundName(fundName)
+  }
 
   const q = search.toLowerCase()
 
@@ -915,14 +1068,20 @@ export function Fundos() {
       <div className="space-y-4">
         {SEGMENTS.map(seg => (
           <SegmentPanel key={seg.id} seg={seg} search={q}
-            docs={docs} onAdd={addDoc} onDelete={deleteDoc} onPreview={setPreviewDoc}
+            docs={docs} onAdd={addDoc} onDelete={deleteDoc} onPreview={openPreview}
             infos={infos} onSaveInfo={saveInfo} allFunds={funds}
           />
         ))}
       </div>
 
       {/* File preview modal */}
-      {previewDoc && <FilePreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)}/>}
+      {previewDoc && (
+        <FilePreviewModal
+          doc={previewDoc}
+          fundName={previewFundName}
+          onClose={() => { setPreviewDoc(null); setPreviewFundName('') }}
+        />
+      )}
     </div>
   )
 }

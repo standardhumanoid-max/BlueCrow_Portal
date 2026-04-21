@@ -4,6 +4,8 @@ import { useStore } from '@/store/useStore'
 import { API_BASE } from '@/lib/api'
 import { Clock } from 'lucide-react'
 
+const SETTINGS_API = `${API_BASE}/api/settings`
+
 const SESSION_KEY   = 'compliance_session'   // guarda { token, user } — sem password
 const INACTIVITY_MS = 30 * 60 * 1000
 const WARNING_MS    =  2 * 60 * 1000
@@ -45,6 +47,7 @@ export interface LoginResult {
 interface AuthState {
   user:            AppUser | null
   authLoading:     boolean
+  hasApiKey:       boolean
   login:           (email: string, password: string) => Promise<LoginResult>
   getSetup2fa:     (userId: string) => Promise<{ qr: string; secret: string } | string>
   confirmSetup2fa: (userId: string, token: string) => Promise<string | null>
@@ -54,6 +57,8 @@ interface AuthState {
   canPortal:       (portal: string) => boolean
   isAdmin:         boolean
   lockoutInfo:     (email: string) => Promise<{ locked: boolean; remaining: number; attempts: number }>
+  saveApiKey:      (key: string) => Promise<string | null>
+  removeApiKey:    () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -62,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const session = loadSession()
   const [user, setUser]               = useState<AppUser | null>(session?.user ?? null)
   const [authLoading, setAuthLoading] = useState(false)
+  const [hasApiKey, setHasApiKey]     = useState(false)
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const warnRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resetRef  = useRef<(() => void) | null>(null)
@@ -150,6 +156,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function fetchApiKeyStatus(token: string) {
+    try {
+      const res = await fetch(`${SETTINGS_API}/apikey`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setHasApiKey(data.hasKey ?? false)
+      }
+    } catch { /* noop */ }
+  }
+
   function completeLogin(appUser: AppUser, token: string, email: string) {
     setUser(appUser)
     saveSession(token, appUser)
@@ -158,6 +176,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       entity: 'Sessão',
       entity_label: `${appUser.name} (${email})`,
     })
+    void fetchApiKeyStatus(token)
+  }
+
+  async function saveApiKey(key: string): Promise<string | null> {
+    try {
+      const s = loadSession()
+      const res = await fetch(`${SETTINGS_API}/apikey`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s?.token}` },
+        body:    JSON.stringify({ key }),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        return d.error ?? 'Erro ao guardar chave'
+      }
+      setHasApiKey(true)
+      return null
+    } catch {
+      return 'Erro de ligação ao servidor'
+    }
+  }
+
+  async function removeApiKey(): Promise<void> {
+    try {
+      const s = loadSession()
+      await fetch(`${SETTINGS_API}/apikey`, {
+        method:  'DELETE',
+        headers: { Authorization: `Bearer ${s?.token}` },
+      })
+      setHasApiKey(false)
+    } catch { /* noop */ }
   }
 
   async function getSetup2fa(userId: string): Promise<{ qr: string; secret: string } | string> {
@@ -245,8 +294,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, authLoading, login, getSetup2fa, confirmSetup2fa, verify2fa,
-      logout, can, canPortal, lockoutInfo,
+      user, authLoading, hasApiKey, login, getSetup2fa, confirmSetup2fa, verify2fa,
+      logout, can, canPortal, lockoutInfo, saveApiKey, removeApiKey,
       isAdmin: user?.role === 'admin',
     }}>
       {children}

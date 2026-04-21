@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { Eye, EyeOff, Lock, Shield, LogOut, Smartphone } from 'lucide-react'
+import { Eye, EyeOff, Lock, Shield, LogOut, Smartphone, Settings, Key } from 'lucide-react'
 
 export type PortalId = 'compliance' | 'asset-valuation' | 'gestao-ativos' | 'investment-analysis' | 'investor-relations' | 'admin-panel'
 
@@ -96,7 +96,7 @@ interface Props {
 }
 
 export function PortalHub({ onSelectPortal }: Props) {
-  const { user, login, getSetup2fa, confirmSetup2fa, verify2fa, logout, lockoutInfo, authLoading } = useAuth()
+  const { user, login, getSetup2fa, confirmSetup2fa, verify2fa, logout, lockoutInfo, authLoading, hasApiKey, saveApiKey, removeApiKey } = useAuth()
 
   // ── Login form state ───────────────────────────────────────────────────────
   const [step,        setStep]       = useState<'credentials' | '2fa' | 'setup'>('credentials')
@@ -113,6 +113,28 @@ export function PortalHub({ onSelectPortal }: Props) {
   const [remaining,   setRemaining]  = useState(0)
   const [attempts,    setAttempts]   = useState(0)
   const [heliLanded, setHeliLanded] = useState(false)
+
+  // ── API key modal state ────────────────────────────────────────────────────
+  const [showKeyModal,  setShowKeyModal]  = useState(false)
+  const [keyInput,      setKeyInput]      = useState('')
+  const [showKeyValue,  setShowKeyValue]  = useState(false)
+  const [keyLoading,    setKeyLoading]    = useState(false)
+  const [keyError,      setKeyError]      = useState<string | null>(null)
+
+  async function handleSaveKey() {
+    if (!keyInput.trim()) return
+    setKeyLoading(true); setKeyError(null)
+    const err = await saveApiKey(keyInput.trim())
+    setKeyLoading(false)
+    if (err) { setKeyError(err) }
+    else { setKeyInput(''); setShowKeyModal(false) }
+  }
+
+  async function handleRemoveKey() {
+    setKeyLoading(true)
+    await removeApiKey()
+    setKeyLoading(false)
+  }
 
   const refreshLockout = useCallback(async () => {
     const info = await lockoutInfo(email.trim())
@@ -342,6 +364,14 @@ export function PortalHub({ onSelectPortal }: Props) {
                   <div className="text-slate-500 text-[10px] mt-0.5 capitalize">{user.role}</div>
                 </div>
               </div>
+              <button
+                onClick={() => { setShowKeyModal(true); setKeyInput(''); setKeyError(null) }}
+                title="Definições de API"
+                className="flex items-center gap-1 text-slate-500 hover:text-slate-300 text-[11px] font-medium transition-colors px-2 py-1 rounded-lg hover:bg-white/5"
+              >
+                <Settings size={12} />
+                {hasApiKey && <span className="w-1.5 h-1.5 rounded-full bg-green-400 ml-0.5"/>}
+              </button>
               <button
                 onClick={() => logout()}
                 className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-[11px] font-medium transition-colors px-2 py-1 rounded-lg hover:bg-white/5"
@@ -618,6 +648,74 @@ export function PortalHub({ onSelectPortal }: Props) {
           BlueCrow Capital · Uso Exclusivamente Interno · Acesso Monitorizado
         </p>
       </footer>
+
+      {/* ── Modal: Chave API Anthropic ── */}
+      {showKeyModal && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4" onClick={() => setShowKeyModal(false)}>
+          <div className="bg-slate-800 border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/20 flex items-center justify-center">
+                <Key className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div>
+                <h3 className="text-[14px] font-semibold text-white">Chave API Anthropic</h3>
+                <p className="text-[10px] text-slate-400">Necessária para o assistente IA nos documentos SCR</p>
+              </div>
+            </div>
+
+            {hasApiKey && !keyInput && (
+              <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl px-3.5 py-2.5 mb-4">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"/>
+                <span className="text-[12px] text-green-300">Chave configurada e activa</span>
+              </div>
+            )}
+
+            <div className="relative mb-4">
+              <input
+                type={showKeyValue ? 'text' : 'password'}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-2.5 pr-10 text-[13px] text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/40 transition-all"
+                placeholder={hasApiKey ? 'Nova chave (deixe em branco para manter)' : 'sk-ant-api03-…'}
+                value={keyInput}
+                onChange={e => { setKeyInput(e.target.value); setKeyError(null) }}
+                autoComplete="off"
+              />
+              <button type="button" onClick={() => setShowKeyValue(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                {showKeyValue ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+              </button>
+            </div>
+
+            {keyError && (
+              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3.5 py-2 mb-4">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"/>
+                <span className="text-[12px] text-red-300">{keyError}</span>
+              </div>
+            )}
+
+            <p className="text-[11px] text-slate-500 mb-4">
+              A chave é armazenada de forma encriptada. Nunca é exposta após ser guardada.
+            </p>
+
+            <div className="flex gap-2">
+              <button onClick={() => { setShowKeyModal(false); setKeyInput(''); setKeyError(null) }}
+                className="flex-1 text-[12px] text-slate-400 hover:text-white px-3 py-2 border border-white/10 rounded-lg transition-colors">
+                Cancelar
+              </button>
+              {hasApiKey && (
+                <button onClick={handleRemoveKey} disabled={keyLoading}
+                  className="text-[12px] text-red-400 hover:text-red-300 px-3 py-2 border border-red-500/20 hover:border-red-400/30 rounded-lg transition-colors disabled:opacity-40">
+                  Remover
+                </button>
+              )}
+              <button onClick={handleSaveKey}
+                disabled={!keyInput.trim() || keyLoading}
+                className="flex-1 text-[12px] text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded-lg transition-colors">
+                {keyLoading ? 'A guardar…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

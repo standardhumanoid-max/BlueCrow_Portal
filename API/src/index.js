@@ -21,6 +21,7 @@ const authRouter       = require('./routes/auth')
 const settingsRouter   = require('./routes/settings')
 const historyRouter      = require('./routes/history')
 const gestaoAtivosRouter = require('./routes/gestaoAtivos')
+const scrRouter          = require('./routes/scr')
 
 const app  = express()
 const PORT = process.env.PORT || 3001
@@ -85,6 +86,7 @@ app.use('/api/admin',      adminRouter)   // auth+admin já dentro do router
 app.use('/api/settings',   requireAuth, settingsRouter)
 app.use('/api/history',    requireAuth, historyRouter)
 app.use('/api/ga',         requireAuth, gestaoAtivosRouter)
+app.use('/api/scr',        requireAuth, scrRouter)
 
 // ── Frontend estático ──────────────────────────────────────────────────────────
 app.use(express.static(DIST))

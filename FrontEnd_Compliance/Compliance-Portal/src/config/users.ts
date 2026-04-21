@@ -8,13 +8,14 @@ export type Role = 'admin' | 'gestor' | 'analista' | 'viewer'
 export type Portal = 'compliance' | 'asset_valuation'
 
 export interface AppUser {
-  id:       string
-  email:    string
-  name:     string
-  initials: string
-  role:     Role
-  portals:  Portal[]
-  active:   boolean
+  id:        string
+  email:     string
+  name:      string
+  initials:  string
+  role:      Role
+  portals:   Portal[]
+  active:    boolean
+  hasApiKey?: boolean
 }
 
 // ── Labels de role (para exibição) ────────────────────────────────────────────

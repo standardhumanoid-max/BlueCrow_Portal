@@ -147,6 +147,9 @@ async function migrate() {
     `ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS totp_secret TEXT`,
     `ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
 
+    // Per-user encrypted settings (API keys, preferences)
+    `ALTER TABLE portal_users ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'`,
+
     // Tabela de configurações globais do portal
     `CREATE TABLE IF NOT EXISTS portal_settings (
       key        TEXT PRIMARY KEY,
