@@ -275,7 +275,7 @@ export const useStore = create<AppState>((set, get) => ({
     const others = get().tasks.filter(t => (t.ano ?? 2026) !== ano)
     set({ tasks: [...others, ...rows] })
     try {
-      await api.bulk('comp_tasks', [...others, ...rows])
+      await api.bulk('comp_tasks', [...others, ...rows] as any[])
       get().addAuditLog({ action: 'CREATE', entity: 'Tarefa', entity_label: `Importação de ${rows.length} tarefas via Excel para ${ano}` })
     } catch (err) {
       console.error('importTasks:', err)
@@ -302,7 +302,7 @@ export const useStore = create<AppState>((set, get) => ({
     set({ risks: rows })
     saveRisksCache(rows)
     try {
-      await api.bulk('comp_risks', rows)
+      await api.bulk('comp_risks', rows as any[])
       get().addAuditLog({ action: 'CREATE', entity: 'Risco', entity_label: `Importação de ${rows.length} riscos via Excel (backup de ${current.length} guardado)` })
     } catch (err) {
       console.error('importRisks:', err)
@@ -571,6 +571,6 @@ export const useStore = create<AppState>((set, get) => ({
   deleteRoadmapItem: (id) => {
     const old = get().roadmapItems.find(r => r.id === id)
     set((s) => ({ roadmapItems: s.roadmapItems.filter(r => r.id !== id) }))
-    api.del('comp_roadmap', id, old?.title ?? id).catch(() => {})
+    api.del('comp_roadmap', id, old?.titulo ?? id).catch(() => {})
   },
 }))

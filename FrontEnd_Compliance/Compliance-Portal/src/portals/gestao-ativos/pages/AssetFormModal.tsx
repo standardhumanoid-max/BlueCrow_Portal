@@ -2,16 +2,10 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { Asset } from '../lib/api'
 
-const SECTORS = ['industrial', 'agricultura', 'leisure', 'outro'] as const
-const DEED_TYPES = ['escritura', 'asset_deal', 'cessao_quotas', 'equity_deal', 'acoes_creditos'] as const
 const STATUSES  = ['em_rendimento', 'sem_rendimento', 'em_venda', 'vendido'] as const
 const STATUS_LABEL: Record<string, string> = {
   em_rendimento: 'Em Rendimento', sem_rendimento: 'Sem Rendimento',
   em_venda: 'Em Venda', vendido: 'Vendido',
-}
-const DEED_LABEL: Record<string, string> = {
-  escritura: 'Escritura', asset_deal: 'Asset Deal',
-  cessao_quotas: 'Cessão de Quotas', equity_deal: 'Equity Deal', acoes_creditos: 'Ações/Créditos',
 }
 
 type Mode = 'create' | 'edit'
@@ -37,16 +31,15 @@ const numCls   = inputCls + ' text-right'
 
 export function AssetFormModal({ mode, initial = {}, onSave, onClose }: Props) {
   const [f, setF] = useState<Partial<Asset>>({
-    name: '', spv: '', sector: null, location: '', typology: '',
-    land_area: null, build_area: null, tenant: '', acquisition_date: null,
-    deed_type: null, maps_link: '', general_notes: '',
+    name: '', spv: '', location: '', typology: '',
+    land_area: null, build_area: null, tenant: '',
+    acquisition_date: null, maps_link: '', general_notes: '',
     purchase_price: 0, stamp_duty: 0, notary_fees: 0,
-    imt_paid: 0, imt_due: 0, imi_paid: 0, imi_due: 0,
-    capex_prev: 0, capex_current: 0, opex_prev: 0, opex_current: 0,
-    capital_cost_rate: 6.5, capital_cost_value: null, capital_cost_override: false,
-    income_prev: 0, income_current: 0,
-    bidding_offer: null, transaction_fee_pct: 5, commercialization_margin: 15,
-    asking_price_final: null, status: 'sem_rendimento',
+    capex_current: 0, opex_current: 0,
+    capital_cost: 6.5, capital_cost_v: null,
+    income_current: 0,
+    bidding_offer: null, transaction_fee: 5, commercialization: 15,
+    asking_price: null, status: 'sem_rendimento',
     ...initial,
   })
   const [saving, setSaving] = useState(false)
@@ -81,7 +74,7 @@ export function AssetFormModal({ mode, initial = {}, onSave, onClose }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto px-6 py-5 space-y-5 flex-1">
-          {/* Identidade */}
+          {/* Identificação */}
           <div>
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Identificação</div>
             <div className="grid grid-cols-2 gap-4">
@@ -90,12 +83,6 @@ export function AssetFormModal({ mode, initial = {}, onSave, onClose }: Props) {
               </Field>
               <Field label="SPV">
                 <input className={inputCls} value={f.spv ?? ''} onChange={e => set('spv', e.target.value)} />
-              </Field>
-              <Field label="Setor">
-                <select className={inputCls} value={f.sector ?? ''} onChange={e => set('sector', e.target.value || null)}>
-                  <option value="">—</option>
-                  {SECTORS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-                </select>
               </Field>
               <Field label="Estado">
                 <select className={inputCls} value={f.status ?? 'sem_rendimento'} onChange={e => set('status', e.target.value)}>
@@ -114,17 +101,11 @@ export function AssetFormModal({ mode, initial = {}, onSave, onClose }: Props) {
               <Field label="Área Construção (m²)">
                 <input className={numCls} type="number" value={f.build_area ?? ''} onChange={num('build_area')} />
               </Field>
-              <Field label="Arrendatário">
+              <Field label="Inquilino">
                 <input className={inputCls} value={f.tenant ?? ''} onChange={e => set('tenant', e.target.value)} />
               </Field>
               <Field label="Data Aquisição">
                 <input className={inputCls} type="date" value={f.acquisition_date ?? ''} onChange={e => set('acquisition_date', e.target.value || null)} />
-              </Field>
-              <Field label="Tipo de Escritura">
-                <select className={inputCls} value={f.deed_type ?? ''} onChange={e => set('deed_type', e.target.value || null)}>
-                  <option value="">—</option>
-                  {DEED_TYPES.map(d => <option key={d} value={d}>{DEED_LABEL[d]}</option>)}
-                </select>
               </Field>
               <Field label="Link Google Maps">
                 <input className={inputCls} value={f.maps_link ?? ''} onChange={e => set('maps_link', e.target.value)} placeholder="https://..." />
@@ -136,65 +117,62 @@ export function AssetFormModal({ mode, initial = {}, onSave, onClose }: Props) {
           <div>
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Custos de Aquisição</div>
             <div className="grid grid-cols-3 gap-4">
-              {[
-                ['Preço Compra', 'purchase_price'], ['Imposto do Selo', 'stamp_duty'],
-                ['Notariado', 'notary_fees'], ['IMT Pago', 'imt_paid'],
-                ['IMT Devido', 'imt_due'], ['IMI Pago', 'imi_paid'], ['IMI Devido', 'imi_due'],
-              ].map(([label, key]) => (
-                <Field key={key} label={label as string}>
-                  <input className={numCls} type="number" step="0.01"
-                    value={(f as any)[key] ?? 0} onChange={num(key as keyof Asset)} />
+              {([['Preço Compra', 'purchase_price'], ['Sisa / IS', 'stamp_duty'], ['Notariado', 'notary_fees']] as [string, keyof Asset][]).map(([label, key]) => (
+                <Field key={key} label={label}>
+                  <input className={numCls} type="number" step="0.01" value={(f as any)[key] ?? 0} onChange={num(key)} />
                 </Field>
               ))}
             </div>
           </div>
 
-          {/* Capex/Opex */}
+          {/* CAPEX / OPEX */}
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Capex / Opex</div>
-            <div className="grid grid-cols-4 gap-4">
-              {[
-                ['Capex Prev.', 'capex_prev'], ['Capex Atual', 'capex_current'],
-                ['Opex Prev.', 'opex_prev'],  ['Opex Atual', 'opex_current'],
-              ].map(([label, key]) => (
-                <Field key={key} label={label as string}>
-                  <input className={numCls} type="number" step="0.01"
-                    value={(f as any)[key] ?? 0} onChange={num(key as keyof Asset)} />
-                </Field>
-              ))}
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">CAPEX / OPEX</div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="CAPEX (€)">
+                <input className={numCls} type="number" step="0.01" value={f.capex_current ?? 0} onChange={num('capex_current')} />
+              </Field>
+              <Field label="OPEX (€)">
+                <input className={numCls} type="number" step="0.01" value={f.opex_current ?? 0} onChange={num('opex_current')} />
+              </Field>
+            </div>
+          </div>
+
+          {/* Custo de Capital */}
+          <div>
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Custo de Capital</div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Taxa (%)">
+                <input className={numCls} type="number" step="0.01" value={f.capital_cost ?? 6.5} onChange={num('capital_cost')} />
+              </Field>
+              <Field label="Override Valor (€)">
+                <input className={numCls} type="number" step="0.01" value={f.capital_cost_v ?? ''} onChange={num('capital_cost_v')} placeholder="—" />
+              </Field>
             </div>
           </div>
 
           {/* Rendimento */}
           <div>
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Rendimento</div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Rendimento Prev.">
-                <input className={numCls} type="number" step="0.01" value={f.income_prev ?? 0} onChange={num('income_prev')} />
-              </Field>
-              <Field label="Rendimento Atual">
+            <div className="grid grid-cols-1 gap-4">
+              <Field label="Rendimento Anual (€)">
                 <input className={numCls} type="number" step="0.01" value={f.income_current ?? 0} onChange={num('income_current')} />
               </Field>
             </div>
           </div>
 
-          {/* Custo de capital */}
+          {/* Venda */}
           <div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Custo de Capital</div>
-            <div className="grid grid-cols-3 gap-4">
-              <Field label="Taxa (%)">
-                <input className={numCls} type="number" step="0.01" value={f.capital_cost_rate ?? 6.5} onChange={num('capital_cost_rate')} />
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">Comercialização</div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Fee Transação (%)">
+                <input className={numCls} type="number" step="0.1" value={f.transaction_fee ?? 5} onChange={num('transaction_fee')} />
               </Field>
-              <Field label="Valor Override">
-                <input className={numCls} type="number" step="0.01" value={f.capital_cost_value ?? ''} onChange={num('capital_cost_value')} />
+              <Field label="Margem Comercialização (%)">
+                <input className={numCls} type="number" step="0.1" value={f.commercialization ?? 15} onChange={num('commercialization')} />
               </Field>
-              <Field label="Usar Override">
-                <div className="flex items-center h-9">
-                  <input type="checkbox" checked={f.capital_cost_override ?? false}
-                    onChange={e => set('capital_cost_override', e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600" />
-                  <span className="ml-2 text-sm text-gray-600">Ativar</span>
-                </div>
+              <Field label="Asking Price Override (€)">
+                <input className={numCls} type="number" step="1000" value={f.asking_price ?? ''} onChange={num('asking_price')} placeholder="(automático)" />
               </Field>
             </div>
           </div>

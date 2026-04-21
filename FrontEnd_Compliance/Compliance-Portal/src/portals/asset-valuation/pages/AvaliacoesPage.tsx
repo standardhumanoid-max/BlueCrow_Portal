@@ -153,14 +153,15 @@ function ValuationHistory({ company, history, onEdit }: { company: Company; hist
         const withBP = history.filter(v => v.bpAssumptions && Object.keys(v.bpAssumptions).some(k => k !== 'notes' && v.bpAssumptions![k as keyof BPAssumptions] != null))
         if (withBP.length < 1) return null
         const cols = [...withBP].reverse()
-        const rows: { label: string; key: keyof BPAssumptions; fmt: (v: number) => string }[] = [
-          { label: 'Revenue CAGR', key: 'revenueCagr', fmt: v => v.toFixed(1) + '%' },
-          { label: 'EBITDA Margin TY', key: 'ebitdaMarginTY', fmt: v => v.toFixed(1) + '%' },
-          { label: 'EBIT Margin TY', key: 'ebitMarginTY', fmt: v => v.toFixed(1) + '%' },
-          { label: 'CAPEX / Revenue TY', key: 'capexRevenueTY', fmt: v => v.toFixed(1) + '%' },
-          { label: 'NWC / Revenue TY', key: 'nwcRevenueTY', fmt: v => v.toFixed(1) + '%' },
-          { label: 'Anos explícitos', key: 'explicitYears', fmt: v => v.toString() },
-        ].filter(r => cols.some(v => v.bpAssumptions?.[r.key] != null))
+        const allRows: { label: string; key: keyof BPAssumptions; fmt: (v: number) => string }[] = [
+          { label: 'Revenue CAGR',       key: 'revenueCagr',    fmt: (v: number) => v.toFixed(1) + '%' },
+          { label: 'EBITDA Margin TY',   key: 'ebitdaMarginTY', fmt: (v: number) => v.toFixed(1) + '%' },
+          { label: 'EBIT Margin TY',     key: 'ebitMarginTY',   fmt: (v: number) => v.toFixed(1) + '%' },
+          { label: 'CAPEX / Revenue TY', key: 'capexRevenueTY', fmt: (v: number) => v.toFixed(1) + '%' },
+          { label: 'NWC / Revenue TY',   key: 'nwcRevenueTY',   fmt: (v: number) => v.toFixed(1) + '%' },
+          { label: 'Anos explícitos',    key: 'explicitYears',  fmt: (v: number) => v.toString() },
+        ]
+        const rows = allRows.filter(r => cols.some(v => v.bpAssumptions?.[r.key] != null))
         if (rows.length === 0) return null
 
         return (

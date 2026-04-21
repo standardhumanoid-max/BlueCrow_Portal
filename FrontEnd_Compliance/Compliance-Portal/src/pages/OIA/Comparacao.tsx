@@ -324,7 +324,7 @@ export function Comparacao() {
     const comp = comps.find(c => c.id === id)
     const updated = comps.filter(c => c.id !== id)
     setComps(updated)
-    sbDelete('oia_comparacoes', COMP_KEY, id, comp?.name ?? id)
+    sbDelete('oia_comparacoes', COMP_KEY, id, comp?.nome ?? id)
     if (activeId === id) setActiveId(updated[0]?.id ?? null)
   }
 

@@ -1599,10 +1599,10 @@ export function OIA() {
                         <td className="px-4 py-2.5"><div className="flex flex-wrap gap-0.5">{labels.map(l=><span key={l} className="text-[9px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-medium">{l}</span>)}{!labels.length&&<span className="text-gray-400 text-[12px]">—</span>}</div></td>
                         <td className="px-4 py-2.5 text-right font-semibold text-[12px] text-gray-800">{row.stake?`${row.stake}%`:'—'}</td>
                         <td className="px-4 py-2.5 text-right text-[12px] text-gray-700">{fmtM(row.invested)}</td>
-                        <td className="px-4 py-2.5 text-right text-[12px] text-gray-700">{fmtM(row.equityInvested ?? row.equityinvested)}</td>
+                        <td className="px-4 py-2.5 text-right text-[12px] text-gray-700">{fmtM(row.equityInvested)}</td>
                         <td className="px-4 py-2.5 text-right text-[12px] font-semibold text-gray-800">{fmtM(row.nav)}</td>
                         <td className="px-4 py-2.5 text-right"><span className={clsx('text-[11px] font-bold', Number(row.moic)>=2?'text-green-600':Number(row.moic)>=1?'text-blue-600':Number(row.moic)>0?'text-red-500':'text-gray-400')}>{row.moic?fmtMoic(row.moic):'—'}</span></td>
-                        <td className="px-4 py-2.5 text-right text-[12px]">{(()=>{ const re=Number(row.rentEquity??row.rentequity); return re?<span className={clsx('font-medium',re>0?'text-green-600':re<0?'text-red-500':'text-gray-400')}>{re.toFixed(1)}%</span>:'—' })()}</td>
+                        <td className="px-4 py-2.5 text-right text-[12px]">{(()=>{ const re=Number(row.rentEquity); return re?<span className={clsx('font-medium',re>0?'text-green-600':re<0?'text-red-500':'text-gray-400')}>{re.toFixed(1)}%</span>:'—' })()}</td>
                         <td className="px-4 py-2.5"><span className={clsx('text-[10px] font-semibold px-2 py-0.5 rounded-full', row.status==='Ativa'?'bg-green-50 text-green-700':row.status==='Em saída'?'bg-amber-50 text-amber-700':'bg-gray-100 text-gray-500')}>{row.status}</span></td>
                       </tr>
                     )

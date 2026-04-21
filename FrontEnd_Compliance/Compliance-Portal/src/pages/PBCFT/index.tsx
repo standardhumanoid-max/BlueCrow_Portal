@@ -4,7 +4,7 @@ import { Badge, estadoVariant } from '@/components/ui/Badge'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { useStore } from '@/store/useStore'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import type { KYCClient } from '@/types'
+import type { KYCClient, KYCDoc } from '@/types'
 import * as XLSX from 'xlsx-js-style'
 
 const TABS = ['KYC / AML','Dever de Comunicação','Dever de Exame','Dever de Recusa','Modelos','Estatísticas','Formação']

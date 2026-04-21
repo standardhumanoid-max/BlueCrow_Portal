@@ -226,3 +226,4 @@ export type PageId =
   | 'assistente'
   | 'reportes'
   | 'roadmap'
+  | 'ciberseguranca'

@@ -1,0 +1,504 @@
+/* ── ASSET PAGE ── full-page view for individual asset/participada */
+
+/* Page wrapper — fills the ga-content scrollable area */
+.ga-portal .ga-asset-page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+}
+
+/* ── HERO HEADER ── */
+.ga-portal .ga-asset-hero {
+  background: var(--navy);
+  padding: 20px 28px 0;
+  flex-shrink: 0;
+}
+
+.ga-portal .ga-asset-hero-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ga-portal .ga-asset-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--r-sm);
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.ga-portal .ga-asset-back-btn:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.12);
+}
+
+.ga-portal .ga-asset-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ga-portal .ga-asset-maps-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+.ga-portal .ga-asset-maps-btn:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.12);
+}
+
+.ga-portal .ga-asset-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(239,68,68,0.65);
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.18);
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.ga-portal .ga-asset-delete-btn:hover {
+  color: #fca5a5;
+  background: rgba(239,68,68,0.2);
+}
+.ga-portal .ga-asset-delete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Hero body: left info + right KPIs */
+.ga-portal .ga-asset-hero-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.ga-portal .ga-asset-hero-left {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 20px;
+}
+
+.ga-portal .ga-asset-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 6px;
+}
+
+.ga-portal .ga-asset-name {
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+  margin: 0 0 10px;
+}
+
+.ga-portal .ga-asset-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 12px;
+}
+
+.ga-portal .ga-asset-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ga-portal .ga-asset-pills-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ga-portal .ga-asset-entity-note {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* Right KPI strip */
+.ga-portal .ga-asset-hero-kpis {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 160px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  overflow: hidden;
+  align-self: stretch;
+  margin-bottom: 0;
+}
+
+.ga-portal .ga-hero-kpi {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ga-portal .ga-hero-kpi:last-child { border-bottom: none; }
+
+.ga-portal .ga-hero-kpi-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.ga-portal .ga-hero-kpi-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.9);
+  white-space: nowrap;
+}
+
+/* ── SHEET TABS (asset page version) ── */
+.ga-portal .ga-asset-sheet-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--navy);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 0 28px;
+  flex-shrink: 0;
+}
+
+.ga-portal .ga-asset-sheet-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.ga-portal .ga-asset-sheet-tab:hover { color: rgba(255,255,255,0.75); }
+.ga-portal .ga-asset-sheet-tab.active {
+  color: #fff;
+  border-bottom-color: var(--accent);
+}
+
+.ga-portal .ga-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 100px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(255,255,255,0.6);
+}
+.ga-portal .ga-asset-sheet-tab.active .ga-tab-badge {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ── ASSET BODY ── scrollable content below header */
+.ga-portal .ga-asset-body {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--cream);
+}
+.ga-portal .ga-asset-body::-webkit-scrollbar { width: 6px; }
+.ga-portal .ga-asset-body::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+
+/* ── SIDEBAR IMPROVEMENTS ── */
+.ga-portal .ga-spv-header.has-selected {
+  color: rgba(255,255,255,0.6);
+}
+
+.ga-portal .ga-spv-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.ga-portal .ga-spv-cost {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: rgba(255,255,255,0.18);
+  font-weight: 400;
+}
+
+/* Asset item with dot + name + location */
+.ga-portal .ga-asset-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.ga-portal .ga-asset-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.ga-portal .ga-asset-item-loc {
+  font-size: 9px;
+  color: rgba(255,255,255,0.2);
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Override asset-item to use flex-col */
+.ga-portal .ga-asset-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 5px 10px 5px 14px;
+  position: relative;
+}
+
+.ga-portal .ga-asset-item > span:first-child {
+  position: absolute;
+  left: 6px;
+  top: 8px;
+}
+
+.ga-portal .ga-asset-item.active {
+  background: rgba(194,90,46,0.15);
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
+}
+
+/* pulse-desc alias */
+.ga-portal .ga-pulse-desc {
+  font-size: 9px;
+  color: rgba(255,255,255,0.3);
+  margin-top: 1px;
+}
+
+/* ── SPV active state in sidebar ── */
+.ga-portal .ga-spv-header.spv-active {
+  color: #fff;
+  background: rgba(194,90,46,0.12);
+  border-left: 2px solid var(--accent);
+}
+
+/* ── SPV PAGE ── */
+.ga-portal .ga-spv-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--cream);
+}
+
+.ga-portal .ga-spv-page-header {
+  background: var(--navy);
+  padding: 20px 28px 18px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+.ga-portal .ga-spv-page-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 5px;
+}
+
+.ga-portal .ga-spv-page-title {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  line-height: 1.1;
+}
+
+/* Summary KPI strip */
+.ga-portal .ga-spv-summary-strip {
+  display: flex;
+  gap: 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ga-portal .ga-spv-summary-kpi {
+  padding: 9px 16px;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 90px;
+}
+.ga-portal .ga-spv-summary-kpi:last-child { border-right: none; }
+
+.ga-portal .ga-spv-summary-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.ga-portal .ga-spv-summary-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.9);
+  white-space: nowrap;
+}
+.ga-portal .ga-spv-summary-value.accent { color: var(--accent); }
+
+/* Table wrapper */
+.ga-portal .ga-spv-table-wrap {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 20px 24px 40px;
+}
+
+.ga-portal .ga-spv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ga-portal .ga-spv-table thead th {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+  background: var(--cream);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.ga-portal .ga-spv-table thead th.num { text-align: right; }
+
+.ga-portal .ga-spv-table tbody td {
+  padding: 8px 10px;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ga-portal .ga-spv-table tbody td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-mid);
+}
+.ga-portal .ga-spv-table tbody td.accent {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
+.ga-portal .ga-spv-row {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ga-portal .ga-spv-row:hover td { background: rgba(194,90,46,0.04); }
+.ga-portal .ga-spv-row:hover td:first-child { border-left: 2px solid var(--accent); padding-left: 8px; }
+
+.ga-portal .ga-spv-name-cell {
+  display: flex !important;
+  align-items: center;
+  gap: 7px;
+  font-weight: 500;
+  color: var(--text-main) !important;
+  min-width: 140px;
+}
+
+.ga-portal .ga-spv-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ga-portal .ga-spv-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ga-portal .ga-spv-maps-link {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(0,0,0,0.3);
+  transition: color 0.15s;
+  text-decoration: none;
+}
+.ga-portal .ga-spv-maps-link:hover { color: var(--accent); }

@@ -22,7 +22,8 @@ const PAGE_TITLES: Record<PageId, { title: string; sub: string }> = {
   estrutura:    { title: 'Estrutura Organizacional',  sub: 'Organograma · Responsabilidades' },
   assistente:   { title: 'Assistente IA',             sub: 'Análise regulatória com IA' },
   reportes:     { title: 'Reportes',                  sub: '' },
-  roadmap:      { title: 'Roadmap',                   sub: 'Melhorias planeadas · Em desenvolvimento · Concluídas' },
+  roadmap:        { title: 'Roadmap',          sub: 'Melhorias planeadas · Em desenvolvimento · Concluídas' },
+  ciberseguranca: { title: 'Cibersegurança',   sub: '' },
 }
 
 // ─── Date helpers ──────────────────────────────────────────────────────────────

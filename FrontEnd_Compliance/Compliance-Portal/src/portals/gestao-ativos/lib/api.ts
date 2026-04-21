@@ -6,36 +6,32 @@ export interface Asset {
   id: string
   name: string
   spv: string | null
-  sector: 'industrial' | 'agricultura' | 'leisure' | 'outro' | null
   location: string | null
   typology: string | null
   land_area: number | null
   build_area: number | null
   tenant: string | null
   acquisition_date: string | null
-  deed_type: 'escritura' | 'asset_deal' | 'cessao_quotas' | 'equity_deal' | 'acoes_creditos' | null
   maps_link: string | null
   general_notes: string | null
+  // Costs
   purchase_price: number
   stamp_duty: number
   notary_fees: number
-  imt_paid: number
-  imt_due: number
-  imi_paid: number
-  imi_due: number
-  capex_prev: number
+  // CAPEX / OPEX
   capex_current: number
-  opex_prev: number
   opex_current: number
-  capital_cost_rate: number
-  capital_cost_value: number | null
-  capital_cost_override: boolean
-  income_prev: number
+  // Capital cost: rate in %, override value
+  capital_cost: number
+  capital_cost_v: number | null
+  // Income (annual)
   income_current: number
+  // Sale
   bidding_offer: number | null
-  transaction_fee_pct: number
-  commercialization_margin: number
-  asking_price_final: number | null
+  transaction_fee: number
+  commercialization: number
+  asking_price: number | null
+  // Status
   status: 'em_rendimento' | 'sem_rendimento' | 'em_venda' | 'vendido'
   created_at: string
   updated_at: string
@@ -99,7 +95,19 @@ export interface AssetDetail extends Asset {
   files: AssetFile[]
 }
 
-// ── API calls ─────────────────────────────────────────────────────────────────
+export interface AssetValuationRow
+  extends Pick<Asset, 'id'|'name'|'spv'|'purchase_price'|'stamp_duty'|'notary_fees'|'capex_current'|'opex_current'|'capital_cost'|'capital_cost_v'|'income_current'|'asking_price'|'bidding_offer'|'transaction_fee'|'commercialization'|'status'> {
+  valuations: Valuation[]
+  bovs: Bov[]
+}
+
+// ── API calls ─────────────────────────────────────────────────────
+
+export async function fetchAvaliacoes(): Promise<AssetValuationRow[]> {
+  const res = await authFetch(`${GA_API}/avaliacoes`)
+  if (!res.ok) throw new Error(`Erro ${res.status}`)
+  return res.json()
+}
 
 export async function fetchAssets(): Promise<Asset[]> {
   const res = await authFetch(`${GA_API}/assets`)
@@ -115,6 +123,16 @@ export async function fetchAsset(id: string): Promise<AssetDetail> {
 
 export async function createAsset(data: Partial<Asset>): Promise<Asset> {
   const res = await authFetch(`${GA_API}/assets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? `Erro ${res.status}`) }
+  return res.json()
+}
+
+export async function upsertAssetByName(data: Partial<Asset>): Promise<Asset> {
+  const res = await authFetch(`${GA_API}/assets/upsert`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

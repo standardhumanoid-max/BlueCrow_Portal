@@ -1,110 +1,305 @@
 import { useMemo } from 'react'
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell,
+  PieChart, Pie, Legend,
+} from 'recharts'
 import type { Asset } from '../lib/api'
-import { Building2, TrendingUp, Euro, MapPin } from 'lucide-react'
+import {
+  calcTotalCost, calcBreakEven, calcAskingBCC, calcYieldOnCost,
+  fmtEur, fmtPctRaw,
+} from '../lib/finance'
+import { STATUS_LABELS } from '../lib/status'
 
-const STATUS_LABEL: Record<string, string> = {
-  em_rendimento: 'Em Rendimento',
-  sem_rendimento: 'Sem Rendimento',
-  em_venda: 'Em Venda',
-  vendido: 'Vendido',
+interface Props {
+  assets: Asset[]
+  onSelectAsset: (id: string) => void
 }
+
 const STATUS_COLOR: Record<string, string> = {
-  em_rendimento:  'bg-emerald-100 text-emerald-700',
-  sem_rendimento: 'bg-gray-100 text-gray-600',
-  em_venda:       'bg-amber-100 text-amber-700',
-  vendido:        'bg-blue-100 text-blue-700',
+  em_rendimento:  '#1E6B4A',
+  sem_rendimento: '#6B7385',
+  em_venda:       '#8A5B12',
+  vendido:        '#1B4B9A',
 }
 
-function fmt(n: number | null | undefined) {
-  if (n == null) return '—'
-  return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+const SPV_PALETTE = ['#C25A2E','#1E6B4A','#1B4B9A','#8A5B12','#6B3A8C','#2C7A7B','#991B1B','#374151']
+
+function spvColor(i: number) { return SPV_PALETTE[i % SPV_PALETTE.length] }
+
+// ── Tooltip formatters ──────────────────────────────────────────────────────
+
+function EurTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="ga-chart-tooltip">
+      <div className="ga-chart-tooltip-label">{label}</div>
+      {payload.map((p: any, i: number) => (
+        <div key={i} className="ga-chart-tooltip-row">
+          <span style={{ color: p.color }}>{p.name}</span>
+          <span>{fmtEur(p.value, true)}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
-export function DashboardPage({ assets, onSelect }: { assets: Asset[]; onSelect: (id: string) => void }) {
-  const stats = useMemo(() => {
-    const ativos = assets.filter(a => a.status === 'em_rendimento')
-    return {
-      total:         assets.length,
-      em_rendimento: ativos.length,
-      em_venda:      assets.filter(a => a.status === 'em_venda').length,
-      income_total:  assets.reduce((s, a) => s + (a.income_current ?? 0), 0),
-      custo_total:   assets.reduce((s, a) => s + (a.purchase_price ?? 0), 0),
+function PctTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="ga-chart-tooltip">
+      <div className="ga-chart-tooltip-label">{label}</div>
+      {payload.map((p: any, i: number) => (
+        <div key={i} className="ga-chart-tooltip-row">
+          <span style={{ color: p.color }}>{p.name ?? 'Yield'}</span>
+          <span>{fmtPctRaw(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PieTooltipFn({ active, payload }: any) {
+  if (!active || !payload?.length) return null
+  const p = payload[0]
+  return (
+    <div className="ga-chart-tooltip">
+      <div className="ga-chart-tooltip-label">{p.name}</div>
+      <div className="ga-chart-tooltip-row">
+        <span style={{ color: p.payload.fill }}>{p.value} ativo{p.value !== 1 ? 's' : ''}</span>
+      </div>
+    </div>
+  )
+}
+
+// ── Main component ──────────────────────────────────────────────────────────
+
+export function DashboardPage({ assets, onSelectAsset }: Props) {
+  const active = useMemo(() => assets.filter(a => a.status !== 'vendido'), [assets])
+
+  const kpis = useMemo(() => {
+    let cost = 0, income = 0, breakEven = 0, asking = 0
+    for (const a of assets) {
+      cost     += calcTotalCost(a)
+      income   += a.income_current ?? 0
+      breakEven += calcBreakEven(a)
+      asking   += a.asking_price ?? calcAskingBCC(a)
     }
+    return { cost, income, breakEven, asking, yield: cost > 0 ? income / cost : 0 }
   }, [assets])
 
+  // SPV breakdown: cost + break-even + income
+  const spvData = useMemo(() => {
+    const map: Record<string, { cost: number; breakEven: number; income: number; count: number }> = {}
+    for (const a of assets) {
+      const k = a.spv || 'Sem SPV'
+      if (!map[k]) map[k] = { cost: 0, breakEven: 0, income: 0, count: 0 }
+      map[k].cost      += calcTotalCost(a)
+      map[k].breakEven += calcBreakEven(a)
+      map[k].income    += a.income_current ?? 0
+      map[k].count++
+    }
+    return Object.entries(map)
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.cost - a.cost)
+  }, [assets])
+
+  // Status distribution (pie)
+  const statusData = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const a of assets) map[a.status] = (map[a.status] ?? 0) + 1
+    return Object.entries(map).map(([status, value]) => ({
+      name: STATUS_LABELS[status] ?? status,
+      value,
+      fill: STATUS_COLOR[status] ?? '#6B7385',
+    }))
+  }, [assets])
+
+  // Top 10 yield assets (active only)
+  const yieldData = useMemo(() =>
+    active
+      .map(a => ({ name: a.name.length > 20 ? a.name.slice(0, 18) + '…' : a.name, yield: calcYieldOnCost(a) * 100 }))
+      .filter(d => d.yield > 0)
+      .sort((a, b) => b.yield - a.yield)
+      .slice(0, 10),
+    [active]
+  )
+
+  // Top assets by annual income
+  const incomeRanking = useMemo(() =>
+    [...assets]
+      .filter(a => (a.income_current ?? 0) > 0)
+      .sort((a, b) => (b.income_current ?? 0) - (a.income_current ?? 0))
+      .slice(0, 8),
+    [assets]
+  )
+  const maxIncome = incomeRanking[0]?.income_current ?? 1
+
+  if (assets.length === 0) {
+    return (
+      <div className="ga-bi-empty">
+        <div className="ga-bi-empty-icon">📊</div>
+        <div className="ga-bi-empty-title">Sem dados para analisar</div>
+        <div className="ga-bi-empty-sub">Adiciona ativos na Tabela para ver o dashboard.</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Visão geral do portefólio de ativos</p>
+    <div className="ga-bi">
+
+      {/* ── KPI strip ── */}
+      <div className="ga-bi-kpi-row">
+        <KpiCard label="Ativos Totais"    value={String(assets.length)}           sub={`${active.length} ativos`} />
+        <KpiCard label="Custo Portefólio" value={fmtEur(kpis.cost, true)}         sub="aquisição + capex + opex" accent />
+        <KpiCard label="Renda Anual"      value={fmtEur(kpis.income, true)}       sub="NOI total" />
+        <KpiCard label="Yield Médio"      value={fmtPctRaw(kpis.yield * 100)}     sub="income / custo" />
+        <KpiCard label="VALOR Inv."       value={fmtEur(kpis.breakEven, true)}    sub="break-even total" accent />
+        <KpiCard label="Asking Total"     value={fmtEur(kpis.asking, true)}       sub="asking teórico" />
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Ativos',     value: stats.total,             icon: Building2,   color: 'text-slate-600',  bg: 'bg-slate-50' },
-          { label: 'Em Rendimento',    value: stats.em_rendimento,     icon: TrendingUp,  color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Em Venda',         value: stats.em_venda,          icon: Building2,   color: 'text-amber-600',  bg: 'bg-amber-50' },
-          { label: 'Rendimento Anual', value: fmt(stats.income_total), icon: Euro,        color: 'text-blue-600',   bg: 'bg-blue-50' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center mb-3`}>
-              <Icon className={`w-5 h-5 ${color}`} />
-            </div>
-            <div className="text-2xl font-bold text-slate-800">{value}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{label}</div>
+      {/* ── Row 1: SPV bars + Status pie ── */}
+      <div className="ga-bi-row">
+        <div className="ga-bi-card ga-bi-card-lg">
+          <div className="ga-bi-card-title">Composição por SPV</div>
+          <div className="ga-bi-card-sub">Custo total vs VALOR Inv. por participada</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={spvData} margin={{ top: 4, right: 8, bottom: 4, left: 8 }} barGap={2}>
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7385' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: '#6B7385' }} axisLine={false} tickLine={false}
+                tickFormatter={v => fmtEur(v, true)} width={52} />
+              <Tooltip content={<EurTooltip />} />
+              <Bar dataKey="cost" name="Custo" radius={[3,3,0,0]}>
+                {spvData.map((_, i) => <Cell key={i} fill={spvColor(i)} fillOpacity={0.75} />)}
+              </Bar>
+              <Bar dataKey="breakEven" name="VALOR Inv." radius={[3,3,0,0]}>
+                {spvData.map((_, i) => <Cell key={i} fill={spvColor(i)} fillOpacity={0.35} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          {/* SPV legend */}
+          <div className="ga-bi-spv-legend">
+            {spvData.map((s, i) => (
+              <span key={s.name} className="ga-bi-legend-item">
+                <span className="ga-bi-legend-dot" style={{ background: spvColor(i) }} />
+                {s.name}
+                <span className="ga-bi-legend-count">{s.count}</span>
+              </span>
+            ))}
           </div>
-        ))}
+        </div>
+
+        <div className="ga-bi-card">
+          <div className="ga-bi-card-title">Distribuição por Estado</div>
+          <div className="ga-bi-card-sub">Ativos por status</div>
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart>
+              <Pie data={statusData} dataKey="value" cx="50%" cy="50%"
+                innerRadius={48} outerRadius={78} paddingAngle={3}>
+                {statusData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+              </Pie>
+              <Tooltip content={<PieTooltipFn />} />
+              <Legend iconType="circle" iconSize={8}
+                formatter={(value) => <span style={{ fontSize: 10, color: '#6B7385' }}>{value}</span>} />
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Status counts */}
+          <div className="ga-bi-status-rows">
+            {statusData.map(s => (
+              <div key={s.name} className="ga-bi-status-row">
+                <span className="ga-bi-status-dot" style={{ background: s.fill }} />
+                <span className="ga-bi-status-name">{s.name}</span>
+                <span className="ga-bi-status-val">{s.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Assets table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-slate-700">Portefólio de Ativos</h2>
+      {/* ── Row 2: Yield ranking + Income ranking ── */}
+      <div className="ga-bi-row">
+        <div className="ga-bi-card">
+          <div className="ga-bi-card-title">Top Yield</div>
+          <div className="ga-bi-card-sub">Yield sobre custo por ativo (ativos em rendimento)</div>
+          {yieldData.length === 0 ? (
+            <div className="ga-bi-no-data">Sem ativos com rendimento.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={yieldData} layout="vertical" margin={{ top: 4, right: 32, bottom: 4, left: 4 }}>
+                <XAxis type="number" tick={{ fontSize: 9, fill: '#6B7385' }} axisLine={false} tickLine={false}
+                  tickFormatter={v => `${v.toFixed(1)}%`} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#6B7385' }}
+                  axisLine={false} tickLine={false} width={110} />
+                <Tooltip content={<PctTooltip />} />
+                <Bar dataKey="yield" name="Yield" radius={[0,3,3,0]}>
+                  {yieldData.map((d, i) => (
+                    <Cell key={i} fill={d.yield >= 6 ? '#1E6B4A' : d.yield >= 2 ? '#C25A2E' : '#991B1B'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
-        {assets.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 text-sm">Nenhum ativo registado.</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 text-[11px] uppercase tracking-wide text-slate-400">
-                <th className="px-5 py-3 text-left">Ativo</th>
-                <th className="px-4 py-3 text-left">SPV</th>
-                <th className="px-4 py-3 text-left">Localização</th>
-                <th className="px-4 py-3 text-left">Setor</th>
-                <th className="px-4 py-3 text-right">Rendimento Anual</th>
-                <th className="px-4 py-3 text-left">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assets.map(a => (
-                <tr key={a.id} onClick={() => onSelect(a.id)}
-                  className="border-b border-gray-50 hover:bg-slate-50 cursor-pointer transition-colors">
-                  <td className="px-5 py-3 font-medium text-slate-800">{a.name}</td>
-                  <td className="px-4 py-3 text-slate-500">{a.spv ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-500">
-                    <div className="flex items-center gap-1.5">
-                      {a.maps_link
-                        ? <a href={a.maps_link} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                            className="flex items-center gap-1 text-blue-500 hover:text-blue-700">
-                            <MapPin className="w-3 h-3" />{a.location ?? '—'}
-                          </a>
-                        : <span>{a.location ?? '—'}</span>}
+
+        <div className="ga-bi-card">
+          <div className="ga-bi-card-title">Top Renda Anual</div>
+          <div className="ga-bi-card-sub">Ativos com maior rendimento anual</div>
+          {incomeRanking.length === 0 ? (
+            <div className="ga-bi-no-data">Sem ativos com rendimento.</div>
+          ) : (
+            <div className="ga-bi-income-list">
+              {incomeRanking.map((a, i) => {
+                const pct = ((a.income_current ?? 0) / maxIncome) * 100
+                return (
+                  <button key={a.id} className="ga-bi-income-row" onClick={() => onSelectAsset(a.id)}>
+                    <span className="ga-bi-income-rank">{i + 1}</span>
+                    <div className="ga-bi-income-info">
+                      <span className="ga-bi-income-name">{a.name}</span>
+                      <div className="ga-bi-income-bar-wrap">
+                        <div className="ga-bi-income-bar" style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 capitalize">{a.sector ?? '—'}</td>
-                  <td className="px-4 py-3 text-right font-medium text-slate-700">{fmt(a.income_current)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLOR[a.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {STATUS_LABEL[a.status] ?? a.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                    <span className="ga-bi-income-val">{fmtEur(a.income_current, true)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* ── Row 3: SPV income vs yield ── */}
+      {spvData.length > 1 && (
+        <div className="ga-bi-row">
+          <div className="ga-bi-card ga-bi-card-full">
+            <div className="ga-bi-card-title">Renda Anual por SPV</div>
+            <div className="ga-bi-card-sub">NOI agregado por participada</div>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={spvData} margin={{ top: 4, right: 8, bottom: 4, left: 8 }} barGap={2}>
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6B7385' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: '#6B7385' }} axisLine={false} tickLine={false}
+                  tickFormatter={v => fmtEur(v, true)} width={52} />
+                <Tooltip content={<EurTooltip />} />
+                <Bar dataKey="income" name="Renda Anual" radius={[3,3,0,0]}>
+                  {spvData.map((_, i) => <Cell key={i} fill={spvColor(i)} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
+function KpiCard({ label, value, sub, accent }: {
+  label: string; value: string; sub: string; accent?: boolean
+}) {
+  return (
+    <div className={`ga-bi-kpi${accent ? ' accent' : ''}`}>
+      <div className="ga-bi-kpi-label">{label}</div>
+      <div className="ga-bi-kpi-value">{value}</div>
+      <div className="ga-bi-kpi-sub">{sub}</div>
     </div>
   )
 }
