@@ -1,13 +1,23 @@
-const express    = require('express')
-const router     = express.Router()
+const express      = require('express')
+const router       = express.Router()
 const { compPool } = require('../db')
 const { decrypt }  = require('../cryptoUtils')
+
+// Load SDK once at startup
+let Anthropic = null
+try {
+  Anthropic = require('@anthropic-ai/sdk')
+  if (Anthropic.default) Anthropic = Anthropic.default
+} catch { /* SDK not installed */ }
 
 // ── POST /api/scr/chat ────────────────────────────────────────────────────────
 router.post('/chat', async (req, res) => {
   const { messages, fundName, pdfBase64, pdfMimeType } = req.body
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages obrigatório' })
+  }
+  if (!Anthropic) {
+    return res.status(500).json({ error: 'SDK Anthropic não instalado no servidor' })
   }
 
   try {
@@ -25,18 +35,8 @@ router.post('/chat', async (req, res) => {
     const apiKey = decrypt(settings.apikey)
     if (!apiKey) return res.status(500).json({ error: 'Erro ao desencriptar chave API' })
 
-    // Lazy-load SDK to avoid startup crash if not installed
-    let Anthropic
-    try {
-      Anthropic = require('@anthropic-ai/sdk')
-      if (Anthropic.default) Anthropic = Anthropic.default
-    } catch {
-      return res.status(500).json({ error: 'SDK Anthropic não instalado no servidor' })
-    }
-
     const client = new Anthropic({ apiKey })
 
-    // Build Claude messages: attach PDF to first user message
     const claudeMessages = messages.map((msg, i) => {
       if (i === 0 && pdfBase64) {
         return {

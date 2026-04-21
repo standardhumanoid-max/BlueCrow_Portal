@@ -131,9 +131,10 @@ export function PortalHub({ onSelectPortal }: Props) {
   }
 
   async function handleRemoveKey() {
-    setKeyLoading(true)
+    setKeyLoading(true); setKeyError(null)
     await removeApiKey()
     setKeyLoading(false)
+    setShowKeyModal(false)
   }
 
   const refreshLockout = useCallback(async () => {

@@ -253,7 +253,11 @@ function FilePreviewModal({ doc, fundName, onClose }: { doc: FundDoc; fundName: 
   const isPDF   = doc.fileType === 'application/pdf' || doc.fileName.toLowerCase().endsWith('.pdf')
   const isImage = doc.fileType.startsWith('image/')
   const blobUrl = useObjectUrl(doc.fileData)
-  const canChat = isPDF && CHAT_CATEGORIES.includes(doc.category as DocCategory)
+  const canChat = isPDF && CHAT_CATEGORIES.includes(doc.category)
+  const pdfB64  = useMemo(
+    () => doc.fileData.includes(',') ? doc.fileData.split(',')[1] : doc.fileData,
+    [doc.fileData]
+  )
 
   const [chatOpen,    setChatOpen]    = useState(false)
   const [messages,    setMessages]    = useState<ChatMsg[]>([])
@@ -276,12 +280,10 @@ function FilePreviewModal({ doc, fundName, onClose }: { doc: FundDoc; fundName: 
     setChatLoading(true)
     setChatError(null)
     try {
-      // Always attach the PDF so Claude keeps document context across turns
-      const b64 = doc.fileData.includes(',') ? doc.fileData.split(',')[1] : doc.fileData
       const res = await authFetch(`${API_BASE}/api/scr/chat`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ messages: next, fundName, pdfBase64: b64, pdfMimeType: 'application/pdf' }),
+        body:    JSON.stringify({ messages: next, fundName, pdfBase64: pdfB64, pdfMimeType: 'application/pdf' }),
       })
       const data = await res.json()
       if (!res.ok) { setChatError(data.error ?? 'Erro ao contactar assistente'); return }
@@ -972,13 +974,7 @@ export function Fundos() {
       setInfos([...data, ...SEED_INFOS.filter(s => !savedIds.has(s.fundId))])
     })
   }, [])
-  const [previewDoc,      setPreviewDoc]      = useState<FundDoc | null>(null)
-  const [previewFundName, setPreviewFundName] = useState('')
-
-  function openPreview(doc: FundDoc, fundName: string) {
-    setPreviewDoc(doc)
-    setPreviewFundName(fundName)
-  }
+  const [preview, setPreview] = useState<{ doc: FundDoc; fundName: string } | null>(null)
 
   const q = search.toLowerCase()
 
@@ -1068,18 +1064,18 @@ export function Fundos() {
       <div className="space-y-4">
         {SEGMENTS.map(seg => (
           <SegmentPanel key={seg.id} seg={seg} search={q}
-            docs={docs} onAdd={addDoc} onDelete={deleteDoc} onPreview={openPreview}
+            docs={docs} onAdd={addDoc} onDelete={deleteDoc} onPreview={(doc, fundName) => setPreview({ doc, fundName })}
             infos={infos} onSaveInfo={saveInfo} allFunds={funds}
           />
         ))}
       </div>
 
       {/* File preview modal */}
-      {previewDoc && (
+      {preview && (
         <FilePreviewModal
-          doc={previewDoc}
-          fundName={previewFundName}
-          onClose={() => { setPreviewDoc(null); setPreviewFundName('') }}
+          doc={preview.doc}
+          fundName={preview.fundName}
+          onClose={() => setPreview(null)}
         />
       )}
     </div>

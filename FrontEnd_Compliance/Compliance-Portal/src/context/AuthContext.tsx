@@ -68,6 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]               = useState<AppUser | null>(session?.user ?? null)
   const [authLoading, setAuthLoading] = useState(false)
   const [hasApiKey, setHasApiKey]     = useState(false)
+
+  // Restore hasApiKey when session is loaded from storage (page refresh)
+  useEffect(() => {
+    if (session?.token && session?.user) {
+      void fetchApiKeyStatus(session.token)
+    }
+  }, []) // intentionally empty — runs once on mount to restore state from stored session
   const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const warnRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resetRef  = useRef<(() => void) | null>(null)
@@ -181,10 +188,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function saveApiKey(key: string): Promise<string | null> {
     try {
-      const s = loadSession()
       const res = await fetch(`${SETTINGS_API}/apikey`, {
         method:  'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s?.token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
         body:    JSON.stringify({ key }),
       })
       if (!res.ok) {
@@ -200,10 +206,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function removeApiKey(): Promise<void> {
     try {
-      const s = loadSession()
       await fetch(`${SETTINGS_API}/apikey`, {
         method:  'DELETE',
-        headers: { Authorization: `Bearer ${s?.token}` },
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
       })
       setHasApiKey(false)
     } catch { /* noop */ }
