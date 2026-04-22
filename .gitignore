@@ -9,6 +9,12 @@ node_modules/
 # Build
 dist/
 build/
+release/
+
+# Binários grandes
+*.vsix
+*.exe
+*.asar
 
 # Logs
 *.log
