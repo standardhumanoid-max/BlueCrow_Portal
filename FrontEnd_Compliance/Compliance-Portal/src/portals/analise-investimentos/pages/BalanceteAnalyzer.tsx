@@ -395,6 +395,7 @@ export function BalanceteAnalyzer({ companies }: { companies: AiCompany[] }) {
 
   function handleFile(f: File) {
     if (!f.type.includes('pdf')) { setError('Apenas ficheiros PDF são suportados neste momento.'); return }
+    if (f.size > 20 * 1024 * 1024) { setError('Ficheiro demasiado grande. Máximo: 20 MB.'); return }
     setFile(f); setError(null); setResult(null)
   }
 

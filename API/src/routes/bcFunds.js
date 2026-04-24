@@ -17,9 +17,15 @@ const BY_PORTAL = {
 
 const ALL = [...CORE.filter(c => c !== 'id'), ...Object.values(BY_PORTAL).flat()]
 
+const VALID_PORTALS = new Set(Object.keys(BY_PORTAL))
+
+function validatePortal(portal) {
+  return VALID_PORTALS.has(portal) ? portal : null
+}
+
 function selectCols(user, portal) {
   if (user.role === 'admin') return ['id', ...ALL]
-  return [...CORE, ...(BY_PORTAL[portal] ?? [])]
+  return [...CORE, ...(BY_PORTAL[validatePortal(portal)] ?? [])]
 }
 
 // GET /api/bc-funds?portal=investment_analysis
@@ -48,7 +54,8 @@ router.get('/:id', async (req, res) => {
 // PUT /api/bc-funds/:id
 router.put('/:id', async (req, res) => {
   try {
-    const allowable = req.user.role === 'admin' ? ALL : (BY_PORTAL[req.query.portal] ?? [])
+    const portal = validatePortal(req.query.portal)
+    const allowable = req.user.role === 'admin' ? ALL : (BY_PORTAL[portal] ?? [])
     const updates = Object.entries(req.body).filter(([k]) => allowable.includes(k))
     if (!updates.length) return res.status(400).json({ error: 'Sem campos para atualizar' })
     const sets = updates.map(([k], i) => `${k}=$${i + 1}`)

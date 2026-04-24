@@ -150,7 +150,7 @@ export function PortalHub({ onSelectPortal }: Props) {
       const info = await lockoutInfo(email.trim())
       setRemaining(info.remaining)
       if (!info.locked) { setLocked(false); setError(null) }
-    }, 5000)
+    }, 30_000)
     return () => clearInterval(id)
   }, [locked, email, lockoutInfo])
 

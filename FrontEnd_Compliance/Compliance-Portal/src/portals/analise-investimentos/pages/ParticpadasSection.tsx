@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
@@ -670,9 +670,18 @@ export function ParticpadasSection() {
     setLoading(false)
   }, [])
 
+  const kpisAbortRef = useRef<AbortController | null>(null)
+
   const loadKpis = useCallback(async (id: string) => {
-    const res = await authFetch(`${API}/companies/${id}/kpis`)
-    if (res.ok) setKpis(await res.json())
+    kpisAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    kpisAbortRef.current = ctrl
+    try {
+      const res = await authFetch(`${API}/companies/${id}/kpis`, { signal: ctrl.signal })
+      if (res.ok) setKpis(await res.json())
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== 'AbortError') console.error(e)
+    }
   }, [])
 
   useEffect(() => { void loadCompanies() }, [loadCompanies])

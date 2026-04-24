@@ -226,8 +226,10 @@ router.delete('/kpis/:id', async (req, res) => {
 router.post('/balancete', async (req, res) => {
   if (!Anthropic) return res.status(500).json({ error: 'SDK Anthropic não instalado no servidor' })
 
-  const { fileBase64, fileMimeType, companyId, period } = req.body
+  const { fileBase64, fileMimeType, companyId, period: rawPeriod } = req.body
   if (!fileBase64) return res.status(400).json({ error: 'Ficheiro obrigatório' })
+  // Sanitize period to prevent prompt injection — only allow alphanumeric, dash, space
+  const period = typeof rawPeriod === 'string' ? rawPeriod.replace(/[^a-zA-Z0-9\-\s]/g, '').slice(0, 20) : ''
 
   try {
     const { rows } = await compPool.query('SELECT settings FROM portal_users WHERE id=$1', [req.user.id])
@@ -268,7 +270,10 @@ router.post('/balancete', async (req, res) => {
     const match = raw.match(/\{[\s\S]*\}/)
     if (!match) return res.status(500).json({ error: 'Resposta inválida do modelo' })
 
-    res.json(JSON.parse(match[0]))
+    let parsed
+    try { parsed = JSON.parse(match[0]) }
+    catch { return res.status(500).json({ error: 'Resposta do modelo não é JSON válido' }) }
+    res.json(parsed)
   } catch (e) {
     if (e?.status === 401) return res.status(401).json({ error: 'Chave API inválida.' })
     res.status(500).json({ error: e.message })
